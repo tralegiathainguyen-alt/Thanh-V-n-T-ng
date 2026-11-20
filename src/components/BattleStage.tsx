@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ELEMENT_META } from '../data/constants';
 import { ElementType, SkillDef, SpiritRootGrade } from '../types/game';
 import { formatNum, getElementRelation } from '../utils/gameLogic';
@@ -7,19 +7,6 @@ import { getVfxAuraIndexForRealm } from '../data/vfxAuras';
 import { CharacterAuraVFX } from './CharacterAuraVFX';
 import { DisciplePortrait, ElementSeal, EnemyUnitSprite, SkillIcon } from './ElementIcons';
 import { ChevronDown, Shield } from 'lucide-react';
-
-/**
- * Sprite & Arena asset checklist for BattleStage:
- * - Boss Arena Backgrounds:
- *   - boss_kiem_ma:  ./assets/arenas/arena_boss_kiem_ma.jpg  (Kiếm Trủng Hoang Cổ)
- *   - boss_cuu_vi:   ./assets/arenas/arena_boss_cuu_vi.jpg   (Xích Viêm Thanh Hồ Điện)
- *   - boss_huyen_vu: ./assets/arenas/arena_boss_huyen_vu.jpg (Bắc Hải Huyền Vũ Đảo)
- *   - boss_ma_long:  ./assets/arenas/arena_boss_ma_long.jpg  (Xích Diễm Long Uyên Đài)
- * - Allies (4x4 animated chibi sheets): ./assets/sprites/characters/*_sheet.png
- * - Bosses / Monsters / Guardians: ./assets/sprites/{bosses,monsters,guardians}/*.png
- * - Transparent VFX ground rings: ./assets/vfx_rings/transparent/ring_01.png .. ring_16.png
- * - Seamless 3D helical body ribbons: ./assets/vfx_ribbons/ribbon_01.png .. ribbon_12.png
- */
 
 export interface StageCombatUnit {
   id: string;
@@ -78,72 +65,156 @@ export interface StageActionAnim {
 
 export interface FormationCoord {
   x: number; // % left
-  y: number; // % top
+  y: number; // % top (feet anchor)
 }
 
-const BOSS_ARENA_BG: Record<string, string> = {
-  boss_kiem_ma: './assets/arenas/arena_boss_kiem_ma.jpg',
-  boss_cuu_vi: './assets/arenas/arena_boss_cuu_vi.jpg',
-  boss_huyen_vu: './assets/arenas/arena_boss_huyen_vu.jpg',
-  boss_ma_long: './assets/arenas/arena_boss_ma_long.jpg',
+export interface ArenaFloorBox {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+export interface ArenaSpec {
+  bgUrl: string;
+  floor: ArenaFloorBox;
+}
+
+const ARENA_SPECS: Record<string, ArenaSpec> = {
+  boss_kiem_ma: {
+    bgUrl: './assets/arenas/arena_boss_kiem_ma.jpg',
+    floor: { minX: 24, maxX: 76, minY: 60, maxY: 83 },
+  },
+  boss_cuu_vi: {
+    bgUrl: './assets/arenas/arena_boss_cuu_vi.jpg',
+    floor: { minX: 22, maxX: 78, minY: 65, maxY: 86 },
+  },
+  boss_huyen_vu: {
+    bgUrl: './assets/arenas/arena_boss_huyen_vu.jpg',
+    floor: { minX: 27, maxX: 73, minY: 46, maxY: 66 },
+  },
+  boss_ma_long: {
+    bgUrl: './assets/arenas/arena_boss_ma_long.jpg',
+    floor: { minX: 27, maxX: 73, minY: 51, maxY: 74 },
+  },
+  realm_moc: {
+    bgUrl: './assets/arenas/arena_realm_moc.jpg',
+    floor: { minX: 24, maxX: 76, minY: 59, maxY: 83 },
+  },
+  realm_bang: {
+    bgUrl: './assets/arenas/arena_realm_bang.jpg',
+    floor: { minX: 24, maxX: 76, minY: 59, maxY: 83 },
+  },
+  realm_cuu_thien: {
+    bgUrl: './assets/arenas/arena_realm_cuu_thien.jpg',
+    floor: { minX: 24, maxX: 76, minY: 58, maxY: 82 },
+  },
 };
 
-function resolveArenaBackdrop(mode: 'realm' | 'boss' | 'vein', bossId?: string): string {
-  if (mode === 'boss' && bossId && BOSS_ARENA_BG[bossId]) {
-    return BOSS_ARENA_BG[bossId];
+export function resolveArenaSpec(
+  mode: 'realm' | 'boss' | 'vein',
+  targetId?: string,
+  bossId?: string,
+): ArenaSpec {
+  if (mode === 'boss' && bossId && ARENA_SPECS[bossId]) {
+    return ARENA_SPECS[bossId];
   }
   if (mode === 'realm') {
-    return './assets/arenas/arena_boss_kiem_ma.jpg';
+    if (targetId === 'thanh_van_coc') return ARENA_SPECS.realm_moc;
+    if (targetId === 'huyen_bang_dong') return ARENA_SPECS.realm_bang;
+    if (targetId === 'xich_viem_vuc') return ARENA_SPECS.boss_ma_long;
+    if (targetId === 'u_minh_co_mo') return ARENA_SPECS.boss_kiem_ma;
+    if (targetId === 'cuu_thien_than_khu') return ARENA_SPECS.realm_cuu_thien;
   }
-  return './assets/aistudio/1_80f8120e.png';
+  if (mode === 'vein') {
+    if (targetId === 'vein_1') return ARENA_SPECS.realm_moc;
+    if (targetId === 'vein_2') return ARENA_SPECS.boss_huyen_vu;
+    if (targetId === 'vein_3') return ARENA_SPECS.boss_ma_long;
+    if (targetId === 'vein_4') return ARENA_SPECS.boss_kiem_ma;
+    if (targetId === 'vein_5') return ARENA_SPECS.realm_cuu_thien;
+  }
+  return ARENA_SPECS.boss_kiem_ma;
 }
 
-// 2.5D Curved Formation (2 front row, 3 back row) — coordinates represent FEET position squarely on the stone floor!
-const ALLY_SLOTS: FormationCoord[] = [
-  { x: 39, y: 65 }, // Front top
-  { x: 41, y: 78 }, // Front bottom
-  { x: 28, y: 61 }, // Back top
-  { x: 25, y: 72 }, // Back mid
-  { x: 30, y: 83 }, // Back bottom
+// Normalized formation positions within [0..1] x [0..1] of each arena's stone floor box
+const ALLY_NORM_5: Array<[number, number]> = [
+  [0.31, 0.22], // Front top
+  [0.34, 0.78], // Front bottom
+  [0.09, 0.06], // Back top
+  [0.03, 0.50], // Back mid
+  [0.12, 0.94], // Back bottom
 ];
 
-// 2.5D Curved Formation (2 front row, 3 back row) for Enemies (right side of stone floor)
-const ENEMY_SLOTS: FormationCoord[] = [
-  { x: 61, y: 65 }, // Front top
-  { x: 59, y: 78 }, // Front bottom
-  { x: 72, y: 61 }, // Back top
-  { x: 75, y: 72 }, // Back mid
-  { x: 70, y: 83 }, // Back bottom
+const ENEMY_NORM_5: Array<[number, number]> = [
+  [0.69, 0.22], // Front top
+  [0.66, 0.78], // Front bottom
+  [0.91, 0.06], // Back top
+  [0.97, 0.50], // Back mid
+  [0.88, 0.94], // Back bottom
 ];
 
-const SINGLE_BOSS_SLOT: FormationCoord = { x: 68, y: 75 };
+function mapNormToFloor(nx: number, ny: number, floor: ArenaFloorBox, isMobile: boolean): FormationCoord {
+  // On narrow mobile screens, widen horizontal floor span slightly so 5 allies never crowd
+  const padX = isMobile ? 8 : 0;
+  const minX = Math.max(10, floor.minX - padX);
+  const maxX = Math.min(90, floor.maxX + padX);
+  return {
+    x: minX + nx * (maxX - minX),
+    y: floor.minY + ny * (floor.maxY - floor.minY),
+  };
+}
 
-export function getUnitHomeCoord(unit: StageCombatUnit, indexInTeam: number, teamSize: number): FormationCoord {
+export function getUnitHomeCoord(
+  unit: StageCombatUnit,
+  indexInTeam: number,
+  teamSize: number,
+  floor: ArenaFloorBox = ARENA_SPECS.boss_kiem_ma.floor,
+  isMobile = false,
+): FormationCoord {
   if (unit.isAlly) {
-    if (teamSize === 1) return { x: 34, y: 73 };
-    if (teamSize === 2) return indexInTeam === 0 ? { x: 35, y: 65 } : { x: 36, y: 79 };
-    if (teamSize === 3) {
-      const map3 = [
-        { x: 40, y: 72 },
-        { x: 27, y: 64 },
-        { x: 29, y: 80 },
+    if (teamSize === 1) return mapNormToFloor(0.22, 0.55, floor, isMobile);
+    if (teamSize === 2) {
+      const pair: Array<[number, number]> = [
+        [0.24, 0.24],
+        [0.26, 0.80],
       ];
-      return map3[indexInTeam] || ALLY_SLOTS[indexInTeam % ALLY_SLOTS.length];
+      const [nx, ny] = pair[indexInTeam] || pair[0];
+      return mapNormToFloor(nx, ny, floor, isMobile);
     }
-    return ALLY_SLOTS[indexInTeam % ALLY_SLOTS.length];
+    if (teamSize === 3) {
+      const tri: Array<[number, number]> = [
+        [0.32, 0.52],
+        [0.08, 0.16],
+        [0.12, 0.86],
+      ];
+      const [nx, ny] = tri[indexInTeam] || tri[0];
+      return mapNormToFloor(nx, ny, floor, isMobile);
+    }
+    const [nx, ny] = ALLY_NORM_5[indexInTeam % ALLY_NORM_5.length];
+    return mapNormToFloor(nx, ny, floor, isMobile);
   }
 
-  if (teamSize === 1) return SINGLE_BOSS_SLOT;
-  if (teamSize === 2) return indexInTeam === 0 ? { x: 65, y: 65 } : { x: 64, y: 79 };
-  if (teamSize === 3) {
-    const map3 = [
-      { x: 60, y: 72 },
-      { x: 73, y: 64 },
-      { x: 71, y: 80 },
+  // Enemies
+  if (teamSize === 1) return mapNormToFloor(0.82, 0.62, floor, isMobile);
+  if (teamSize === 2) {
+    const pair: Array<[number, number]> = [
+      [0.76, 0.24],
+      [0.74, 0.80],
     ];
-    return map3[indexInTeam] || ENEMY_SLOTS[indexInTeam % ENEMY_SLOTS.length];
+    const [nx, ny] = pair[indexInTeam] || pair[0];
+    return mapNormToFloor(nx, ny, floor, isMobile);
   }
-  return ENEMY_SLOTS[indexInTeam % ENEMY_SLOTS.length];
+  if (teamSize === 3) {
+    const tri: Array<[number, number]> = [
+      [0.68, 0.52],
+      [0.92, 0.16],
+      [0.88, 0.86],
+    ];
+    const [nx, ny] = tri[indexInTeam] || tri[0];
+    return mapNormToFloor(nx, ny, floor, isMobile);
+  }
+  const [nx, ny] = ENEMY_NORM_5[indexInTeam % ENEMY_NORM_5.length];
+  return mapNormToFloor(nx, ny, floor, isMobile);
 }
 
 const ELEMENT_RING_ID: Record<ElementType, number> = {
@@ -156,6 +227,7 @@ const ELEMENT_RING_ID: Record<ElementType, number> = {
 
 interface BattleStageProps {
   mode: 'realm' | 'boss' | 'vein';
+  targetId?: string;
   bossId?: string;
   allies: StageCombatUnit[];
   enemies: StageCombatUnit[];
@@ -175,6 +247,7 @@ interface BattleStageProps {
 
 export const BattleStage: React.FC<BattleStageProps> = ({
   mode,
+  targetId,
   bossId,
   allies,
   enemies,
@@ -191,14 +264,36 @@ export const BattleStage: React.FC<BattleStageProps> = ({
   fastMode,
   onSelectTarget,
 }) => {
-  const arenaBgUrl = resolveArenaBackdrop(mode, bossId);
+  const [viewportW, setViewportW] = useState<number>(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1280,
+  );
+
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const isMobile = viewportW < 640;
+  const isTablet = viewportW >= 640 && viewportW < 1024;
+  const responsiveUnitScale = isMobile ? 0.68 : isTablet ? 0.85 : 1.0;
+
+  const arenaSpec = resolveArenaSpec(mode, targetId, bossId);
+  const { bgUrl: arenaBgUrl, floor } = arenaSpec;
 
   const allPositioned = [
-    ...allies.map((u, i) => ({ unit: u, idx: i, home: getUnitHomeCoord(u, i, allies.length) })),
-    ...enemies.map((u, i) => ({ unit: u, idx: i, home: getUnitHomeCoord(u, i, enemies.length) })),
+    ...allies.map((u, i) => ({
+      unit: u,
+      idx: i,
+      home: getUnitHomeCoord(u, i, allies.length, floor, isMobile),
+    })),
+    ...enemies.map((u, i) => ({
+      unit: u,
+      idx: i,
+      home: getUnitHomeCoord(u, i, enemies.length, floor, isMobile),
+    })),
   ];
 
-  // Live coordinate map (used by Skill Beam VFX overlay)
   const coordById = new Map<string, FormationCoord>();
   for (const p of allPositioned) {
     const isActing = actionAnim?.casterId === p.unit.id;
@@ -217,42 +312,41 @@ export const BattleStage: React.FC<BattleStageProps> = ({
         screenShake ? 'animate-combat-shake' : ''
       }`}
     >
-      {/* Dedicated Per-Boss 2.5D Xianxia Arena Backdrop */}
+      {/* Dedicated Per-Boss / Per-Realm 2.5D Xianxia Arena Backdrop */}
       <img
         src={arenaBgUrl}
         alt="Lôi Đài Chiến Đấu"
         draggable={false}
         className="pointer-events-none absolute inset-0 w-full h-full object-cover object-center"
       />
-      {/* Subtle outer edge vignette only — keeps arena courtyard bright & crystal clear */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 80% 72% at 50% 58%, transparent 35%, rgba(8,14,16,0.34) 85%, rgba(6,10,12,0.58) 100%)',
+            'radial-gradient(ellipse 80% 72% at 50% 58%, transparent 35%, rgba(8,14,16,0.3) 85%, rgba(6,10,12,0.55) 100%)',
         }}
       />
 
       {/* Non-blocking Skill Callout Ribbon at Upper-Center */}
       {actionAnim && (actionAnim.phase === 'callout' || actionAnim.phase === 'move' || actionAnim.phase === 'impact') && (
-        <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-[950] flex flex-col items-center">
+        <div className="pointer-events-none absolute top-2 sm:top-3 left-1/2 -translate-x-1/2 z-[950] flex flex-col items-center max-w-[92vw]">
           <div
-            className="flex items-center gap-2.5 px-4 py-1.5 rounded-full border-2 shadow-2xl backdrop-blur-xs"
+            className="flex items-center gap-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border-2 shadow-2xl backdrop-blur-xs"
             style={{
               backgroundColor: 'rgba(14, 28, 27, 0.88)',
               borderColor: ELEMENT_META[actionAnim.element].border,
               boxShadow: `0 0 28px ${ELEMENT_META[actionAnim.element].color}99`,
             }}
           >
-            <SkillIcon skillId={actionAnim.skillId} name={actionAnim.skillName} className="w-7 h-7" />
+            <SkillIcon skillId={actionAnim.skillId} name={actionAnim.skillName} className="w-6 h-6 sm:w-7 sm:h-7" />
             <span
-              className="text-base sm:text-lg font-bold tracking-wide text-[#FFF4CE]"
+              className="text-sm sm:text-lg font-bold tracking-wide text-[#FFF4CE] whitespace-nowrap"
               style={{ fontFamily: 'var(--font-display)' }}
             >
               {actionAnim.skillName}
             </span>
             {actionAnim.isCombo && (
-              <span className="px-2 py-0.5 rounded-full bg-[#F59E0B] text-[#1D1204] text-[11px] font-extrabold uppercase tracking-wider">
+              <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-[#F59E0B] text-[#1D1204] text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider whitespace-nowrap">
                 Liên Hoàn x{actionAnim.comboChain}!
               </span>
             )}
@@ -286,7 +380,7 @@ export const BattleStage: React.FC<BattleStageProps> = ({
             return (
               <g key={tId} filter="url(#skillGlow)">
                 <path
-                  d={`M ${casterCoord.x} ${casterCoord.y - 4} Q ${midX} ${midY} ${tc.x} ${tc.y - 4}`}
+                  d={`M ${casterCoord.x} ${casterCoord.y - 6} Q ${midX} ${midY} ${tc.x} ${tc.y - 6}`}
                   fill="none"
                   stroke={elemColor}
                   strokeWidth={impactVfx.isAoE ? '1.2' : '0.9'}
@@ -294,7 +388,7 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                   className="animate-skill-beam"
                 />
                 <path
-                  d={`M ${casterCoord.x} ${casterCoord.y - 4} Q ${midX} ${midY} ${tc.x} ${tc.y - 4}`}
+                  d={`M ${casterCoord.x} ${casterCoord.y - 6} Q ${midX} ${midY} ${tc.x} ${tc.y - 6}`}
                   fill="none"
                   stroke="#FFFFFF"
                   strokeWidth="0.4"
@@ -342,11 +436,10 @@ export const BattleStage: React.FC<BattleStageProps> = ({
               ? getVfxRingPreset(getVfxRingIndexForRealm(u.realmIndex))
               : null;
 
-          const knockbackX = isHit ? (u.isAlly ? -16 : 16) : 0;
-          // Subtle 2.5D perspective depth scaling (units further back on floor are slightly smaller)
-          const depthScale = isGiantBoss
-            ? 1.0
-            : Math.max(0.88, Math.min(1.08, 0.88 + ((curY - 58) / 26) * 0.18));
+          const knockbackX = isHit ? (u.isAlly ? -14 : 14) : 0;
+          const floorSpan = Math.max(12, floor.maxY - floor.minY);
+          const depthProgress = Math.max(0, Math.min(1, (curY - floor.minY) / floorSpan));
+          const depthScale = (isGiantBoss ? 1.0 : 0.88 + depthProgress * 0.18) * responsiveUnitScale;
 
           return (
             <div
@@ -372,7 +465,7 @@ export const BattleStage: React.FC<BattleStageProps> = ({
               {/* Red Target Lock Arrow above selected enemy */}
               {isSelected && (
                 <div className="pointer-events-none -mb-1 flex flex-col items-center animate-bounce z-30">
-                  <span className="px-1.5 py-0.5 rounded bg-[#B91C1C]/92 border border-[#FCA5A5] text-[9px] font-bold text-white shadow">
+                  <span className="px-1.5 py-0.5 rounded bg-[#B91C1C]/92 border border-[#FCA5A5] text-[9px] font-bold text-white shadow whitespace-nowrap">
                     MỤC TIÊU
                     {relToActive === 'counter' ? ' · KHẮC +35%' : relToActive === 'resisted' ? ' · -20%' : ''}
                   </span>
@@ -384,13 +477,13 @@ export const BattleStage: React.FC<BattleStageProps> = ({
               <div className="pointer-events-none mb-1 flex flex-col items-center z-20">
                 <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#101E1D]/85 border border-[#D4B06A]/50 shadow text-[10px] font-bold text-[#FAF2DE] whitespace-nowrap">
                   <ElementSeal element={u.element} size="xs" />
-                  <span className="max-w-[100px] truncate">{u.name}</span>
+                  <span className="max-w-[92px] truncate">{u.name}</span>
                   {isNextCombo && (
                     <span className="w-2 h-2 rounded-full bg-[#FDE047] animate-ping" title="Sẵn sàng Liên Hoàn!" />
                   )}
                 </div>
 
-                <div className={`mt-0.5 ${isGiantBoss ? 'w-36' : 'w-20 sm:w-24'} space-y-0.5`}>
+                <div className={`mt-0.5 ${isGiantBoss ? 'w-36' : 'w-22 sm:w-24'} space-y-0.5`}>
                   <div className="relative h-2 rounded-full bg-[#091212]/90 border border-black/70 overflow-hidden shadow">
                     <div
                       className={`h-full transition-all duration-300 ${
@@ -430,14 +523,13 @@ export const BattleStage: React.FC<BattleStageProps> = ({
 
               {/* Character Sprite + Flat Horizontal Ground Ring + 3D Helical Ribbon + Elemental Impact VFX */}
               <div className="relative flex items-end justify-center">
-                {/* Ground Contact Shadow */}
                 <div
                   className={`pointer-events-none absolute -bottom-1.5 rounded-[50%] bg-black/50 blur-[3px] ${
                     isGiantBoss ? 'w-40 h-9' : 'w-16 h-4'
                   }`}
                 />
 
-                {/* TRUE FLAT ISOMETRIC GROUND VFX RING UNDER FEET (outer scaleY(0.40) + inner animate-spin!) */}
+                {/* Flat Isometric Ground VFX Ring */}
                 {allyGroundRing && (
                   <div
                     className="pointer-events-none absolute left-1/2 -bottom-12 -translate-x-1/2 w-28 sm:w-32 h-28 sm:h-32 z-0"
@@ -480,7 +572,7 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                   }}
                 />
 
-                {/* Sprite Body with Phase-Staggered Idle Breathing, 3D Helical Ribbon & Hit Flash */}
+                {/* Sprite Body with Idle Breathing, 3D Helical Ribbon & Hit Flash */}
                 <div
                   className={`relative z-10 ${!isActing && !isHit ? 'animate-combat-breathe' : ''}`}
                   style={{
@@ -516,7 +608,7 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                             ? 'attack'
                             : 'idle'
                         }
-                        className="!w-20 !h-20 sm:!w-24 sm:!h-24"
+                        className="!w-22 !h-22 sm:!w-24 sm:!h-24"
                       />
                     </CharacterAuraVFX>
                   ) : (
@@ -533,18 +625,17 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                         isBoss={u.isBoss}
                         className={
                           isGiantBoss
-                            ? 'w-40 h-40 sm:w-52 sm:h-52'
-                            : 'w-20 h-20 sm:w-24 sm:h-24'
+                            ? 'w-44 h-44 sm:w-52 sm:h-52'
+                            : 'w-22 h-22 sm:w-24 sm:h-24'
                         }
                       />
                     </div>
                   )}
                 </div>
 
-                {/* Dramatic On-Target Elemental Skill VFX (Slashes, Flame Pillars, Waves, Vines, Shield Dome) */}
+                {/* On-Target Elemental Skill VFX */}
                 {hasImpactHere && impactVfx && impactRingPreset && (
                   <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
-                    {/* Expanding Transparent Magic Ring Impact */}
                     <img
                       src={impactRingPreset.transparentUrl}
                       alt=""
@@ -558,7 +649,6 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                       }}
                     />
 
-                    {/* Element-Specific Signature Skill Graphics */}
                     {impactVfx.vfxType === 'sword' && (
                       <svg
                         viewBox="0 0 120 120"
@@ -566,27 +656,9 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                           isGiantBoss ? 'w-52 h-52' : 'w-32 h-32'
                         }`}
                       >
-                        <path
-                          d="M 12 104 Q 60 54 108 12"
-                          stroke="#FEF08A"
-                          strokeWidth="7"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                        <path
-                          d="M 18 22 Q 62 62 104 102"
-                          stroke="#F59E0B"
-                          strokeWidth="5"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                        <path
-                          d="M 12 104 Q 60 54 108 12"
-                          stroke="#FFFFFF"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
+                        <path d="M 12 104 Q 60 54 108 12" stroke="#FEF08A" strokeWidth="7" strokeLinecap="round" fill="none" />
+                        <path d="M 18 22 Q 62 62 104 102" stroke="#F59E0B" strokeWidth="5" strokeLinecap="round" fill="none" />
+                        <path d="M 12 104 Q 60 54 108 12" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" fill="none" />
                       </svg>
                     )}
 
@@ -625,20 +697,8 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                           isGiantBoss ? 'w-48 h-48' : 'w-32 h-32'
                         }`}
                       >
-                        <path
-                          d="M 10 95 C 35 20, 85 100, 110 20"
-                          stroke="#22C55E"
-                          strokeWidth="6"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                        <path
-                          d="M 15 35 C 45 95, 80 25, 108 88"
-                          stroke="#86EFAC"
-                          strokeWidth="4"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
+                        <path d="M 10 95 C 35 20, 85 100, 110 20" stroke="#22C55E" strokeWidth="6" strokeLinecap="round" fill="none" />
+                        <path d="M 15 35 C 45 95, 80 25, 108 88" stroke="#86EFAC" strokeWidth="4" strokeLinecap="round" fill="none" />
                       </svg>
                     )}
 

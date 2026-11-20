@@ -1981,7 +1981,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
   const hasOfflineReady = state.pendingOfflineSeconds >= 600;
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#122120] select-none">
+    <div className="relative w-full h-[100dvh] overflow-hidden bg-[#122120] select-none">
       {/* FULLSCREEN INTERACTIVE ISOMETRIC SECT VIEW */}
       <SectMapView
         state={state}
@@ -2213,33 +2213,33 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
             </span>
           </div>
 
-          {/* Right Resource Strip */}
-          <div className="flex items-center gap-2 sm:gap-3.5 text-xs font-mono tabular-nums shrink-0">
-            <div className="flex items-center gap-1.5">
+          {/* Right Resource Strip (compact icon+number on mobile, full label on desktop) */}
+          <div className="flex items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs font-mono tabular-nums shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               <ResourceIcon resource="linhThach" size="sm" />
               <div className="text-right">
-                <div className="text-[10px] font-sans text-[#AFC6BB] leading-tight">Linh Thạch</div>
+                <div className="hidden sm:block text-[10px] font-sans text-[#AFC6BB] leading-tight">Linh Thạch</div>
                 <div className="font-bold text-[#F5D380] leading-tight">{formatNum(state.resources.linhThach)}</div>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               <ResourceIcon resource="tienNgoc" size="sm" />
               <div className="text-right">
-                <div className="text-[10px] font-sans text-[#AFC6BB] leading-tight">Tiên Ngọc</div>
+                <div className="hidden sm:block text-[10px] font-sans text-[#AFC6BB] leading-tight">Tiên Ngọc</div>
                 <div className="font-bold text-[#6EE7B7] leading-tight">{formatNum(state.resources.tienNgoc)}</div>
               </div>
             </div>
-            <div className="hidden sm:flex items-center gap-1.5">
+            <div className="hidden md:flex items-center gap-1.5">
               <ResourceIcon resource="linhKhi" size="sm" />
               <div className="text-right">
                 <div className="text-[10px] font-sans text-[#AFC6BB] leading-tight">Linh Khí</div>
                 <div className="font-bold text-[#93C5FD] leading-tight">{formatNum(state.resources.linhKhi)}</div>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 pl-2 border-l border-[#C9A45C]/35">
+            <div className="flex items-center gap-1 sm:gap-1.5 pl-1.5 sm:pl-2 border-l border-[#C9A45C]/35">
               <ResourceIcon resource="stamina" size="sm" />
               <div className="text-right">
-                <div className="text-[10px] font-sans text-[#AFC6BB] leading-tight">Thể Lực</div>
+                <div className="hidden sm:block text-[10px] font-sans text-[#AFC6BB] leading-tight">Thể Lực</div>
                 <div className="font-bold text-[#FDE047] leading-tight">
                   {state.resources.stamina}/{state.resources.maxStamina}
                 </div>
@@ -2252,9 +2252,9 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                 }}
                 title="Mua thêm Thể Lực"
                 aria-label="Mua thêm Thể Lực"
-                className="w-6 h-6 rounded-full bg-[#D4A24C] hover:bg-[#F2D384] text-[#1E1408] flex items-center justify-center cursor-pointer shrink-0"
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#D4A24C] hover:bg-[#F2D384] text-[#1E1408] flex items-center justify-center cursor-pointer shrink-0"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </button>
             </div>
             <button
@@ -2264,7 +2264,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
               }}
               title="Asset Studio — Cân chỉnh & Tinh chỉnh toàn bộ tài nguyên game"
               aria-label="Asset Studio"
-              className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#241E3A]/95 hover:bg-[#322952] border border-[#C084FC]/60 text-[#E9D5FF] text-[11px] font-sans font-semibold cursor-pointer shrink-0 shadow transition-colors"
+              className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-[#241E3A]/95 hover:bg-[#322952] border border-[#C084FC]/60 text-[#E9D5FF] text-[11px] font-sans font-semibold cursor-pointer shrink-0 shadow transition-colors"
             >
               <Palette className="w-3.5 h-3.5 text-[#C084FC]" />
               <span className="hidden xl:inline">Studio</span>
@@ -2276,7 +2276,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
               }}
               title="Phòng thử nghiệm 16 hiệu ứng VFX Cảnh Giới"
               aria-label="Phòng thử nghiệm 16 hiệu ứng VFX Cảnh Giới"
-              className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#1C243C]/95 hover:bg-[#283457] border border-[#7DD3FC]/60 text-[#BAE6FD] text-[11px] font-sans font-semibold cursor-pointer shrink-0 shadow transition-colors"
+              className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-[#1C243C]/95 hover:bg-[#283457] border border-[#7DD3FC]/60 text-[#BAE6FD] text-[11px] font-sans font-semibold cursor-pointer shrink-0 shadow transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#FDE047]" />
               <span className="hidden xl:inline">VFX 16</span>
@@ -2288,7 +2288,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
               }}
               title="Tài khoản & Sao lưu dữ liệu"
               aria-label="Tài khoản & Sao lưu dữ liệu"
-              className="flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full bg-[#16302D]/95 hover:bg-[#1F4440] border border-[#D4A24C]/70 text-[#FCE6A6] text-[11px] font-sans font-semibold cursor-pointer shrink-0 shadow transition-colors"
+              className="flex items-center gap-1.5 px-1.5 sm:pl-2 sm:pr-2.5 py-1 rounded-full bg-[#16302D]/95 hover:bg-[#1F4440] border border-[#D4A24C]/70 text-[#FCE6A6] text-[11px] font-sans font-semibold cursor-pointer shrink-0 shadow transition-colors"
             >
               <span className="relative flex items-center justify-center">
                 <User className="w-3.5 h-3.5 text-[#F5D687]" />

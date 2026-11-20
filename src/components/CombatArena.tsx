@@ -42,6 +42,7 @@ import {
   StageFloatingText,
   StageImpactVfx,
   getUnitHomeCoord,
+  resolveArenaSpec,
 } from './BattleStage';
 import {
   ChevronDown,
@@ -154,7 +155,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
   const [impactVfx, setImpactVfx] = useState<StageImpactVfx | null>(null);
   const [screenShake, setScreenShake] = useState(false);
   const [floatingTexts, setFloatingTexts] = useState<StageFloatingText[]>([]);
-  const [showLog, setShowLog] = useState(true);
+  const [showLog, setShowLog] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 768 : true));
   const [combatLog, setCombatLog] = useState<string[]>([
     `Khai chiến: ${context.title}! Tận dụng Tương Sinh Ngũ Hành để tạo Combo Liên Hoàn.`,
   ]);
@@ -463,21 +464,26 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     // -----------------------------------------------------------------------
     // PHASE 2: Approach / Cast Movement
     // -----------------------------------------------------------------------
+    const arenaFloor = resolveArenaSpec(context.mode, context.targetId, context.bossDef?.id).floor;
+    const isMobileScreen = typeof window !== 'undefined' && window.innerWidth < 640;
     let dashTo: { x: number; y: number } | null = null;
     let leapY = 0;
 
     if (skill.target === 'single' && primaryTargetUnit) {
       const oppList = unitsRef.current.filter((u) => u.isAlly !== acting.isAlly);
       const tgtIdx = oppList.findIndex((u) => u.id === primaryTargetUnit!.id);
-      const tgtCoord = getUnitHomeCoord(primaryTargetUnit, Math.max(0, tgtIdx), oppList.length);
-      const stopOffset = primaryTargetUnit.isBoss && oppList.length === 1 ? 15 : 10;
+      const tgtCoord = getUnitHomeCoord(primaryTargetUnit, Math.max(0, tgtIdx), oppList.length, arenaFloor, isMobileScreen);
+      const stopOffset = primaryTargetUnit.isBoss && oppList.length === 1 ? 13 : 9;
       dashTo = {
         x: acting.isAlly ? Math.max(15, tgtCoord.x - stopOffset) : Math.min(85, tgtCoord.x + stopOffset),
         y: tgtCoord.y,
       };
     } else if (skill.target === 'all') {
-      // AoE ultimate: glide toward center of stone platform and levitate!
-      dashTo = { x: acting.isAlly ? 45 : 55, y: 71 };
+      // AoE ultimate: glide toward center of this arena's stone platform and levitate!
+      dashTo = {
+        x: acting.isAlly ? 45 : 55,
+        y: (arenaFloor.minY + arenaFloor.maxY) * 0.52,
+      };
       leapY = -18;
     } else {
       // Ally heal / shield: levitate gracefully in place
@@ -614,7 +620,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
   const deckAlly = activeUnit?.isAlly ? activeUnit : allies.find((a) => a.hp > 0) || allies[0];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#0D1A19] text-[#F5ECD8] overflow-hidden">
+    <div className="fixed inset-0 h-[100dvh] z-50 flex flex-col bg-[#0D1A19] text-[#F5ECD8] overflow-hidden">
       {/* 1. TOP HUD BAR */}
       <header className="relative z-20 flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[#0F201F]/95 border-b border-[#C9A45C]/55 shadow-lg shrink-0">
         {/* Left: Turn Counter + Battle Name */}
@@ -731,6 +737,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       {/* 2. CENTER 2.5D LIVE BATTLE STAGE (~70% screen) */}
       <BattleStage
         mode={context.mode}
+        targetId={context.targetId}
         bossId={context.bossDef?.id}
         allies={allies}
         enemies={enemies}
@@ -752,39 +759,41 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       />
 
       {/* 3. COMPACT BOTTOM HUD (Skill Deck left + Collapsible Translucent Combat Log right) */}
-      <footer className="relative z-20 px-3 sm:px-4 py-2 bg-[#0D1D1C]/92 border-t border-[#C9A45C]/55 backdrop-blur-sm shrink-0">
-        <div className="max-w-[1220px] mx-auto flex flex-col lg:flex-row items-stretch lg:items-end justify-between gap-2.5">
+      <footer className="relative z-20 px-2 sm:px-4 py-1.5 sm:py-2 bg-[#0D1D1C]/92 border-t border-[#C9A45C]/55 backdrop-blur-sm shrink-0">
+        <div className="max-w-[1220px] mx-auto flex flex-col lg:flex-row items-stretch lg:items-end justify-between gap-2">
           {/* Bottom-Left: Active Ally Skill Command Deck */}
-          <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {deckAlly && (
-              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-[#162C2A]/95 border border-[#C9A45C]/55 shrink-0">
-                <DisciplePortrait
-                  discipleId={deckAlly.id}
-                  name={deckAlly.name}
-                  glyph={deckAlly.glyph}
-                  element={deckAlly.element}
-                  realmIndex={deckAlly.realmIndex}
-                  spiritRoot={deckAlly.spiritRoot}
-                  size="sm"
-                  borderColor={activeUnit?.id === deckAlly.id ? '#FDE047' : '#C9A45C'}
-                />
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-[#FCE6A6] truncate max-w-[120px]">{deckAlly.name}</div>
-                  <div className="text-[10px] font-mono text-[#93C5FD]">
-                    Linh Lực: {deckAlly.mp}/{deckAlly.maxMp}
+              <div className="flex items-center justify-between sm:justify-start gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-[#162C2A]/95 border border-[#C9A45C]/55 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <DisciplePortrait
+                    discipleId={deckAlly.id}
+                    name={deckAlly.name}
+                    glyph={deckAlly.glyph}
+                    element={deckAlly.element}
+                    realmIndex={deckAlly.realmIndex}
+                    spiritRoot={deckAlly.spiritRoot}
+                    size="sm"
+                    borderColor={activeUnit?.id === deckAlly.id ? '#FDE047' : '#C9A45C'}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-[#FCE6A6] truncate max-w-[110px]">{deckAlly.name}</div>
+                    <div className="text-[10px] font-mono text-[#93C5FD]">
+                      MP: {deckAlly.mp}/{deckAlly.maxMp}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-[#BCE6CD]">
-                    {activeUnit?.isAlly
-                      ? isAnimating
-                        ? 'Đang xuất chiêu...'
-                        : 'Chọn kỹ năng'
-                      : `Lượt địch: ${activeUnit?.name || '...'}`}
-                  </div>
+                </div>
+                <div className="text-[10px] text-[#BCE6CD] sm:hidden">
+                  {activeUnit?.isAlly
+                    ? isAnimating
+                      ? 'Đang xuất chiêu...'
+                      : 'Chọn chiêu'
+                    : `Địch: ${activeUnit?.name.split(' ').slice(-1)[0] || '...'}`}
                 </div>
               </div>
             )}
 
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="flex-1 grid grid-cols-2 gap-1.5 sm:gap-2">
               {(deckAlly?.skills || []).map((sk) => {
                 const canCast = isPlayerTurn && activeUnit && activeUnit.mp >= sk.mpCost;
                 const willCombo = Boolean(activeUnit?.isAlly && doesGenerateElement(comboElement, sk.element));
@@ -794,7 +803,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
                     type="button"
                     disabled={!canCast}
                     onClick={() => activeUnit && executeSkill(activeUnit, sk, selectedTargetId)}
-                    className={`text-left px-2.5 py-2 rounded-xl border transition-all ${
+                    className={`text-left px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-xl border transition-all ${
                       canCast
                         ? willCombo
                           ? 'bg-gradient-to-r from-[#2D4532] to-[#3B391E] border-[#FDE047] hover:brightness-110 cursor-pointer shadow-[0_0_12px_rgba(253,224,71,0.28)]'
@@ -802,21 +811,21 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
                         : 'bg-[#12201F]/90 border-[#2C4240] opacity-55 cursor-not-allowed'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <SkillIcon skillId={sk.id} name={sk.name} className="w-8 h-8 shrink-0" />
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                        <SkillIcon skillId={sk.id} name={sk.name} className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
                         <div className="min-w-0">
-                          <div className="font-bold text-xs sm:text-sm text-[#FCF1D2] truncate leading-tight">
+                          <div className="font-bold text-[11px] sm:text-sm text-[#FCF1D2] truncate leading-tight">
                             {sk.name}
                           </div>
-                          <div className="text-[10px] text-[#C8DDD4] truncate">{sk.description}</div>
+                          <div className="hidden sm:block text-[10px] text-[#C8DDD4] truncate">{sk.description}</div>
                         </div>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-[#93C5FD] whitespace-nowrap shrink-0">
-                        {sk.mpCost > 0 ? `-${sk.mpCost} MP` : '+25 MP'}
+                      <span className="text-[9px] sm:text-[10px] font-mono font-bold text-[#93C5FD] whitespace-nowrap shrink-0">
+                        {sk.mpCost > 0 ? `-${sk.mpCost}` : '+25'}
                       </span>
                     </div>
-                    <div className="text-[10px] text-[#F2D180] mt-0.5 truncate">{sk.comboBonusDesc}</div>
+                    <div className="hidden sm:block text-[10px] text-[#F2D180] mt-0.5 truncate">{sk.comboBonusDesc}</div>
                   </button>
                 );
               })}
