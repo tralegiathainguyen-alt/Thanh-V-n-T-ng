@@ -1,0 +1,81 @@
+/* Bộ Font Google Fonts Hỗ Trợ Tiếng Việt */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Cormorant+Garamond:wght@600;700&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+:root {
+  --font-title: 'Cormorant Garamond', serif;
+  --font-ui: 'Be Vietnam Pro', sans-serif;
+  --font-num: 'JetBrains Mono', monospace;
+}
+
+.tabular-nums { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* 3 Chất Liệu Khung Giao Diện (UI Surfaces) */
+.scroll-parchment {
+  background: linear-gradient(180deg, #F8F3E6 0%, #EFE6D2 100%);
+  border: 2px solid #B8860B;
+  box-shadow: 0 12px 32px rgba(24, 18, 10, 0.45), inset 0 0 24px rgba(184, 134, 11, 0.15);
+  border-radius: 10px;
+}
+
+.jade-hud-bar {
+  background: rgba(24, 44, 42, 0.95);
+  border: 1.5px solid #D3B06B;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px);
+}
+
+.medallion-btn {
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #2E4A45, #182C2A);
+  border: 2.5px solid #D3B06B;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45), inset 0 1px 4px rgba(245, 217, 138, 0.5);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.medallion-btn:hover { transform: scale(1.06); filter: brightness(1.12); }
+
+/* 7 Hiệu Ứng Động (CSS VFX Keyframes) */
+@keyframes cloudDrift {
+  0% { transform: translateX(-15%); opacity: 0.55; }
+  50% { opacity: 0.85; }
+  100% { transform: translateX(115%); opacity: 0.55; }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-7px); }
+}
+
+@keyframes spiritMote {
+  0% { transform: translateY(0) scale(0.7); opacity: 0; }
+  25% { opacity: 0.95; }
+  100% { transform: translateY(-56px) scale(1.15); opacity: 0; }
+}
+
+@keyframes damageFloat {
+  0% { transform: translateY(0) scale(0.85); opacity: 1; }
+  30% { transform: translateY(-18px) scale(1.15); opacity: 1; }
+  100% { transform: translateY(-52px) scale(0.95); opacity: 0; }
+}
+
+@keyframes comboBurst {
+  0% { transform: scale(0.4); opacity: 0; }
+  25% { transform: scale(1.12); opacity: 1; }
+  80% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+
+@keyframes hitShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px) rotate(-1.5deg); }
+  40% { transform: translateX(8px) rotate(1.5deg); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+@keyframes tribulationFlash {
+  0% { background: rgba(245, 214, 139, 0); }
+  15% { background: rgba(255, 244, 194, 0.85); }
+  40% { background: rgba(245, 214, 139, 0.25); }
+  60% { background: rgba(255, 250, 220, 0.75); }
+  100% { background: rgba(245, 214, 139, 0); }
+}

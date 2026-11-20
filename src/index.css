@@ -1,0 +1,267 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root {
+  --font-title: "Cormorant Garamond", Georgia, serif;
+  --font-ui: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.tabular-nums {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: var(--font-ui);
+  }
+}
+
+/* Custom Xianxia scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(36, 33, 28, 0.08);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(164, 132, 74, 0.55);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(164, 132, 74, 0.85);
+}
+
+/* 7 Hiệu Ứng Động (CSS VFX Keyframes) */
+@keyframes cloudDrift {
+  0% { transform: translateX(-15%); opacity: 0.55; }
+  50% { opacity: 0.85; }
+  100% { transform: translateX(115%); opacity: 0.55; }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-7px); }
+}
+
+@keyframes spiritMote {
+  0% { transform: translateY(0) scale(0.7); opacity: 0; }
+  25% { opacity: 0.95; }
+  100% { transform: translateY(-56px) scale(1.15); opacity: 0; }
+}
+
+@keyframes damageFloat {
+  0% { transform: translateY(0) scale(0.85); opacity: 1; }
+  30% { transform: translateY(-18px) scale(1.15); opacity: 1; }
+  100% { transform: translateY(-52px) scale(0.95); opacity: 0; }
+}
+
+@keyframes comboBurst {
+  0% { transform: scale(0.4); opacity: 0; }
+  25% { transform: scale(1.12); opacity: 1; }
+  80% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+
+@keyframes hitShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px) rotate(-1.5deg); }
+  40% { transform: translateX(8px) rotate(1.5deg); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+@keyframes tribulationFlash {
+  0% { background: rgba(245, 214, 139, 0); }
+  15% { background: rgba(255, 244, 194, 0.85); }
+  40% { background: rgba(245, 214, 139, 0.25); }
+  60% { background: rgba(255, 250, 220, 0.75); }
+  100% { background: rgba(245, 214, 139, 0); }
+}
+
+.animate-cloud-drift {
+  animation: cloudDrift 34s linear infinite;
+}
+.animate-float-slow {
+  animation: floatSlow 3.8s ease-in-out infinite;
+}
+.animate-spirit-mote {
+  animation: spiritMote 4.5s ease-out infinite;
+}
+.animate-damage-float {
+  animation: damageFloat 0.95s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-combo-burst {
+  animation: comboBurst 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-hit-shake {
+  animation: hitShake 0.34s ease-in-out;
+}
+.animate-tribulation {
+  animation: tribulationFlash 0.75s ease-out forwards;
+}
+
+/* Authentic uploaded scroll parchment 9-slice surface */
+.scroll-parchment {
+  background-color: transparent;
+  border-style: solid;
+  border-width: 22px 20px;
+  border-image-source: url('/assets/aistudio/scroll_parchment_4bc391e2.png');
+  border-image-slice: 66 70 66 70 fill;
+  border-image-repeat: stretch;
+  filter: drop-shadow(0 20px 36px rgba(8, 18, 17, 0.62));
+}
+@media (min-width: 640px) {
+  .scroll-parchment {
+    border-width: 26px 28px;
+  }
+}
+
+/* Authentic uploaded dark-jade & brass top HUD bar (9-slice preserving gold rivets) */
+.jade-hud-bar {
+  background-color: transparent;
+  border-style: solid;
+  border-width: 10px 30px;
+  border-image-source: url('/assets/aistudio/jade_hud_bar_a5d9c507.png');
+  border-image-slice: 24 86 24 86 fill;
+  border-image-repeat: stretch;
+  filter: drop-shadow(0 6px 14px rgba(6, 16, 15, 0.55));
+}
+@media (min-width: 640px) {
+  .jade-hud-bar {
+    border-width: 12px 46px;
+  }
+}
+
+/* Authentic uploaded jade-and-gold circular medallion button */
+.medallion-btn {
+  background: url('/assets/aistudio/medallion_btn_0beadc66.png') center / 100% 100% no-repeat;
+  border: none;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+.medallion-btn:hover {
+  transform: translateY(-2px) scale(1.04);
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.58)) brightness(1.1);
+}
+.medallion-btn:active {
+  transform: translateY(0px) scale(0.96);
+}
+
+/* Hand-drawn pointed dark-gold shortcut banner (9-slice from 13.png) */
+.shortcut-banner-btn {
+  background-color: transparent;
+  border-style: solid;
+  border-width: 5px 24px;
+  border-image-source: url('/assets/sprites/hud/shortcut_banner_pointed.png');
+  border-image-slice: 24 130 24 130 fill;
+  border-image-repeat: stretch;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.48));
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+.shortcut-banner-btn:hover {
+  transform: translateX(3px);
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.58)) brightness(1.12);
+}
+.shortcut-banner-btn:active {
+  transform: translateX(1px) scale(0.98);
+}
+
+/* Dark wood & gold-cloud corner plaque (from 13.png) */
+.sect-level-plaque {
+  background-color: transparent;
+  border-style: solid;
+  border-width: 7px 24px;
+  border-image-source: url('/assets/sprites/hud/shortcut_banner_rect.png');
+  border-image-slice: 32 105 32 105 fill;
+  border-image-repeat: stretch;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+}
+
+/* Miniature golden-crowned scroll nameplate under HUD medallions */
+.hud-label-scroll {
+  background: url('/assets/sprites/hud/label_scroll.png') center / 100% 100% no-repeat;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+}
+
+/* Hand-drawn circular HUD icon medallion wrapper */
+.hud-icon-medallion {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.52));
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+.group:hover .hud-icon-medallion {
+  transform: translateY(-2px) scale(1.06);
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.62)) brightness(1.08);
+}
+.group:active .hud-icon-medallion {
+  transform: translateY(0px) scale(0.96);
+}
+.hud-icon-medallion-glow {
+  filter: drop-shadow(0 0 10px rgba(253, 224, 71, 0.9)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.55));
+}
+
+/* Circular corner portrait wheel & orbiting Xianxia medallions */
+.portrait-ring-gold {
+  background: radial-gradient(circle at 30% 25%, #FFF2B8 0%, #DFB459 42%, #8C5E1C 85%, #4A2E0B 100%);
+  box-shadow:
+    0 0 0 2px #261709,
+    0 6px 16px rgba(0, 0, 0, 0.55),
+    inset 0 2px 3px rgba(255, 250, 220, 0.75);
+}
+
+.radial-orb-dark {
+  background: radial-gradient(circle at 35% 25%, #3C3A36 0%, #1E1D1B 68%, #100F0E 100%);
+  border: 2.5px solid #C89756;
+  box-shadow:
+    0 0 0 1.5px #1D1208,
+    0 4px 10px rgba(0, 0, 0, 0.52),
+    inset 0 2px 3px rgba(255, 232, 185, 0.22);
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), filter 0.16s ease;
+}
+.radial-orb-dark:hover {
+  transform: scale(1.07);
+  filter: brightness(1.15);
+}
+.radial-orb-dark:active {
+  transform: scale(0.95);
+}
+
+.radial-orb-gold {
+  background: radial-gradient(circle at 34% 24%, #FFF0A8 0%, #F4B944 55%, #C97D19 100%);
+  border: 2.5px solid #3D240B;
+  box-shadow:
+    0 0 0 1.5px #F8D982,
+    0 4px 12px rgba(217, 138, 28, 0.55),
+    inset 0 2px 4px rgba(255, 252, 224, 0.8);
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), filter 0.16s ease;
+}
+.radial-orb-gold:hover {
+  transform: scale(1.07);
+  filter: brightness(1.08);
+}
+.radial-orb-gold:active {
+  transform: scale(0.95);
+}
+
+.radial-orb-label {
+  text-shadow:
+    -1.2px -1.2px 0 #1B1209,
+     1.2px -1.2px 0 #1B1209,
+    -1.2px  1.2px 0 #1B1209,
+     1.2px  1.2px 0 #1B1209,
+     0px    1.8px 3px rgba(0, 0, 0, 0.85);
+}
+

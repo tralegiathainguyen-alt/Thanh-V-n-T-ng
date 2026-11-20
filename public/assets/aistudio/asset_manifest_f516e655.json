@@ -1,0 +1,48 @@
+{
+  "pack": "Bo_Asset_Tien_Hiep_Dot_1_Transparent_PNG",
+  "total_png_files": 60,
+  "buildings_coordinates": [
+    {
+      "id": "chinh_dien",
+      "name": "Chính Điện Tông Môn",
+      "x": "69%",
+      "y": "38%"
+    },
+    {
+      "id": "tu_linh_tran",
+      "name": "Tụ Linh Trận",
+      "x": "52%",
+      "y": "79%"
+    },
+    {
+      "id": "linh_duoc_dien",
+      "name": "Linh Dược Điền",
+      "x": "64%",
+      "y": "67%"
+    },
+    {
+      "id": "luyen_dan_lo",
+      "name": "Luyện Đan Lô",
+      "x": "48%",
+      "y": "42%"
+    },
+    {
+      "id": "luyen_khi_cac",
+      "name": "Luyện Khí Các",
+      "x": "40%",
+      "y": "50%"
+    },
+    {
+      "id": "tang_kinh_cac",
+      "name": "Tàng Kinh Các",
+      "x": "80%",
+      "y": "53%"
+    },
+    {
+      "id": "son_mon_bi_canh",
+      "name": "Sơn Môn Bí Cảnh",
+      "x": "30%",
+      "y": "74%"
+    }
+  ]
+}

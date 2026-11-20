@@ -1,0 +1,6 @@
+{
+  "name": "Thanh Vân Tiên Tông — Tu Tiên Tông Môn",
+  "description": "Game tu tiên tông môn chuẩn Turn-Based với hệ thống ngũ hành tương sinh tương khắc, xây dựng tông môn, chiêu mộ đệ tử, đột phá cảnh giới, 12 ô trang bị khảm ngọc và tranh đoạt linh mạch.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
