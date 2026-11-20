@@ -22,7 +22,8 @@ export type AssetCategoryId =
   | 'map'
   | 'arenas'
   | 'vfx_skills'
-  | 'vfx_ribbons';
+  | 'vfx_ribbons'
+  | 'paper_doll';
 
 export interface AssetCatalogEntry {
   id: string;
@@ -34,6 +35,7 @@ export interface AssetCatalogEntry {
 }
 
 export const ASSET_CATEGORIES: { id: AssetCategoryId; label: string }[] = [
+  { id: 'paper_doll', label: 'Chibi Tách Lớp (32)' },
   { id: 'characters', label: 'Nhân Vật' },
   { id: 'vfx_rings', label: 'VFX 16 Vòng' },
   { id: 'vfx_auras', label: 'Aura Thân (16)' },
@@ -477,6 +479,46 @@ function buildCatalog(): AssetCatalogEntry[] {
       url: `./assets/vfx_ribbons/ribbon_${idx}.png`,
       kind: 'sprite',
     });
+  }
+
+  // Modular Chibi Paper Doll PNGs (Universal Headless Poses + Male + Female)
+  const PAPER_DOLL_ITEMS: [string, string, string][] = [
+    ['pd_common_idle', 'Thân Không Đầu · Đứng (512x640)', './assets/paper_doll/common/body_idle.png'],
+    ['pd_common_run1', 'Thân Không Đầu · Chạy 1 (512x640)', './assets/paper_doll/common/body_run_1.png'],
+    ['pd_common_run2', 'Thân Không Đầu · Chạy 2 (512x640)', './assets/paper_doll/common/body_run_2.png'],
+    ['pd_common_attack', 'Thân Không Đầu · Xuất Chiêu (512x640)', './assets/paper_doll/common/body_attack.png'],
+    ['pd_male_body', 'Nam · Thân Cơ Bản', './assets/paper_doll/male/body_base.png'],
+    ['pd_male_hair0', 'Nam · Tóc Búi Mặc Định', './assets/paper_doll/male/hair_0_front.png'],
+    ['pd_male_hair1f', 'Nam · Tóc Dài Đen (Trước)', './assets/paper_doll/male/hair_1_front.png'],
+    ['pd_male_hair1b', 'Nam · Tóc Dài Đen (Sau)', './assets/paper_doll/male/hair_1_back.png'],
+    ['pd_male_hair2f', 'Nam · Tóc Nâu Xoăn (Trước)', './assets/paper_doll/male/hair_2_front.png'],
+    ['pd_male_hair2b', 'Nam · Tóc Nâu Xoăn (Sau)', './assets/paper_doll/male/hair_2_back.png'],
+    ['pd_male_hair_back', 'Nam · Tóc Quay Lưng', './assets/paper_doll/male/hair_back.png'],
+    ['pd_male_face_vui', 'Nam · Mặt Vui Vẻ', './assets/paper_doll/male/face_vui_ve.png'],
+    ['pd_male_face_lanh', 'Nam · Mặt Lạnh Lùng', './assets/paper_doll/male/face_lanh_lung.png'],
+    ['pd_male_face_quyet', 'Nam · Mặt Quyết Tâm', './assets/paper_doll/male/face_quyet_tam.png'],
+    ['pd_male_face_hoang', 'Nam · Mặt Hoảng Hốt', './assets/paper_doll/male/face_hoang_hot.png'],
+    ['pd_male_out_nm', 'Nam · Áo Ngoại Môn', './assets/paper_doll/male/outfit_ngoai_mon.png'],
+    ['pd_male_out_kk', 'Nam · Áo Kiếm Khách', './assets/paper_doll/male/outfit_kiem_khach.png'],
+    ['pd_male_out_ds', 'Nam · Áo Đạo Sĩ', './assets/paper_doll/male/outfit_dao_si.png'],
+    ['pd_weap_sword', 'Vũ Khí · Phi Kiếm Vàng', './assets/paper_doll/male/weapon_sword.png'],
+    ['pd_weap_fan', 'Vũ Khí · Quạt Xếp Tiên Phong', './assets/paper_doll/male/weapon_fan.png'],
+    ['pd_fem_hair0f', 'Nữ · Tóc Tiên Dài (Trước)', './assets/paper_doll/female/hair_0_front.png'],
+    ['pd_fem_hair0b', 'Nữ · Tóc Tiên Dài (Sau)', './assets/paper_doll/female/hair_0_back.png'],
+    ['pd_fem_hair1f', 'Nữ · Tóc Búi Đôi Dải Lụa (Trước)', './assets/paper_doll/female/hair_1_front.png'],
+    ['pd_fem_hair1b', 'Nữ · Tóc Búi Đôi Dải Lụa (Sau)', './assets/paper_doll/female/hair_1_back.png'],
+    ['pd_fem_hair_back', 'Nữ · Tóc Quay Lưng Trâm Ngọc', './assets/paper_doll/female/hair_back.png'],
+    ['pd_fem_face_vui', 'Nữ · Mặt Vui Vẻ', './assets/paper_doll/female/face_vui_ve.png'],
+    ['pd_fem_face_lanh', 'Nữ · Mặt Lạnh Lùng', './assets/paper_doll/female/face_lanh_lung.png'],
+    ['pd_fem_face_tinh', 'Nữ · Mặt Tinh Nghịch', './assets/paper_doll/female/face_tinh_nghich.png'],
+    ['pd_fem_face_ngay', 'Nữ · Mặt Ngây Thơ', './assets/paper_doll/female/face_ngay_tho.png'],
+    ['pd_fem_out_nm', 'Nữ · Tiên Y Ngoại Môn', './assets/paper_doll/female/outfit_ngoai_mon.png'],
+    ['pd_fem_out_kk', 'Nữ · Kiếm Cơ Lam Vàng', './assets/paper_doll/female/outfit_kiem_khach.png'],
+    ['pd_fem_out_ds', 'Nữ · Đạo Y Băng Trắng', './assets/paper_doll/female/outfit_dao_si.png'],
+    ['pd_fem_out_ld', 'Nữ · Tiên Y Đỏ Vàng Dải Lụa', './assets/paper_doll/female/outfit_luyen_dan.png'],
+  ];
+  for (const [id, name, url] of PAPER_DOLL_ITEMS) {
+    list.push({ id, name, category: 'paper_doll', url, kind: 'sprite' });
   }
 
   return list;

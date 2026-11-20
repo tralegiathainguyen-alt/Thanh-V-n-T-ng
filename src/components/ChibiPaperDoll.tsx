@@ -116,7 +116,11 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
   };
   const hairFilter = getHairPngFilter(config.hairColor);
   const outfitFilter =
-    config.outfit === 'luyen_dan' ? 'hue-rotate(-38deg) saturate(1.85) brightness(0.88)' : undefined;
+    config.gender === 'male' && config.outfit === 'luyen_dan'
+      ? 'hue-rotate(-38deg) saturate(1.85) brightness(0.88)'
+      : undefined;
+  // Female outfits already include complete arms, hands & boots on 512x640, so only draw body_base when male or no outfit
+  const showBaseBodyUnderOutfit = config.gender === 'male' || !outfitPng;
 
   const isRunning = motionState === 'run';
   const isIdle = motionState === 'idle';
@@ -176,7 +180,7 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
         }}
       >
         {bodyPng ? (
-          /* REAL PNG PAPER DOLL STACK (256x320 unified alignment) */
+          /* REAL HIGH-RES PNG PAPER DOLL STACK (unified headless rig for Male & Female) */
           <div className="absolute inset-0">
             {!facingBack && backHairPng && (
               <img
@@ -191,12 +195,14 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
                 }}
               />
             )}
-            <img
-              src={bodyPng}
-              alt=""
-              draggable={false}
-              className="absolute inset-0 w-full h-full object-contain"
-            />
+            {showBaseBodyUnderOutfit && (
+              <img
+                src={bodyPng}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-contain"
+              />
+            )}
             {outfitPng && (
               <img
                 src={outfitPng}

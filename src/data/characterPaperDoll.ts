@@ -20,13 +20,21 @@ export interface PaperDollConfig {
   auraId: number; // 0 = off, 1..16 from vfx_auras
 }
 
+const COMMON_BASE = './assets/paper_doll/common';
 const MALE_BASE = './assets/paper_doll/male';
+const FEMALE_BASE = './assets/paper_doll/female';
 
 /**
  * Drop real transparent PNG URLs here to automatically override
  * any procedural SVG part of ChibiPaperDoll without changing component code.
  */
 export const CHARACTER_PART_ASSETS: {
+  commonPoses: {
+    idle: string;
+    run1: string;
+    run2: string;
+    attack: string;
+  };
   body: Record<PaperDollGender, { front?: string; back?: string }>;
   outfits: Record<PaperDollGender, Partial<Record<PaperDollOutfitId, { front?: string; back?: string }>>>;
   backHair: Record<PaperDollGender, (string | undefined)[]>;
@@ -35,12 +43,21 @@ export const CHARACTER_PART_ASSETS: {
   faces: Record<PaperDollGender, Partial<Record<PaperDollCombatExpression, string>>>;
   weapons: Partial<Record<Exclude<PaperDollWeaponId, 'none'>, string>>;
 } = {
+  commonPoses: {
+    idle: `${COMMON_BASE}/body_idle.png`,
+    run1: `${COMMON_BASE}/body_run_1.png`,
+    run2: `${COMMON_BASE}/body_run_2.png`,
+    attack: `${COMMON_BASE}/body_attack.png`,
+  },
   body: {
     male: {
       front: `${MALE_BASE}/body_base.png`,
       back: `${MALE_BASE}/body_base.png`,
     },
-    female: {},
+    female: {
+      front: `${COMMON_BASE}/body_idle.png`,
+      back: `${COMMON_BASE}/body_idle.png`,
+    },
   },
   outfits: {
     male: {
@@ -49,11 +66,21 @@ export const CHARACTER_PART_ASSETS: {
       dao_si: { front: `${MALE_BASE}/outfit_dao_si.png`, back: `${MALE_BASE}/outfit_dao_si.png` },
       luyen_dan: { front: `${MALE_BASE}/outfit_dao_si.png`, back: `${MALE_BASE}/outfit_dao_si.png` },
     },
-    female: {},
+    female: {
+      ngoai_mon: { front: `${FEMALE_BASE}/outfit_ngoai_mon.png`, back: `${FEMALE_BASE}/outfit_ngoai_mon.png` },
+      kiem_khach: { front: `${FEMALE_BASE}/outfit_kiem_khach.png`, back: `${FEMALE_BASE}/outfit_kiem_khach.png` },
+      dao_si: { front: `${FEMALE_BASE}/outfit_dao_si.png`, back: `${FEMALE_BASE}/outfit_dao_si.png` },
+      luyen_dan: { front: `${FEMALE_BASE}/outfit_luyen_dan.png`, back: `${FEMALE_BASE}/outfit_luyen_dan.png` },
+    },
   },
   backHair: {
     male: [undefined, `${MALE_BASE}/hair_1_back.png`, `${MALE_BASE}/hair_2_back.png`, `${MALE_BASE}/hair_1_back.png`],
-    female: [undefined, undefined, undefined, undefined],
+    female: [
+      `${FEMALE_BASE}/hair_0_back.png`,
+      `${FEMALE_BASE}/hair_1_back.png`,
+      `${FEMALE_BASE}/hair_0_back.png`,
+      `${FEMALE_BASE}/hair_1_back.png`,
+    ],
   },
   frontHair: {
     male: [
@@ -62,11 +89,16 @@ export const CHARACTER_PART_ASSETS: {
       `${MALE_BASE}/hair_2_front.png`,
       `${MALE_BASE}/hair_2_front.png`,
     ],
-    female: [undefined, undefined, undefined, undefined],
+    female: [
+      `${FEMALE_BASE}/hair_0_front.png`,
+      `${FEMALE_BASE}/hair_1_front.png`,
+      `${FEMALE_BASE}/hair_0_front.png`,
+      `${FEMALE_BASE}/hair_1_front.png`,
+    ],
   },
   backViewHair: {
     male: `${MALE_BASE}/hair_back.png`,
-    female: undefined,
+    female: `${FEMALE_BASE}/hair_back.png`,
   },
   faces: {
     male: {
@@ -78,7 +110,15 @@ export const CHARACTER_PART_ASSETS: {
       quyet_tam: `${MALE_BASE}/face_quyet_tam.png`,
       hoang_hot: `${MALE_BASE}/face_hoang_hot.png`,
     },
-    female: {},
+    female: {
+      vui_ve: `${FEMALE_BASE}/face_vui_ve.png`,
+      lanh_lung: `${FEMALE_BASE}/face_lanh_lung.png`,
+      tinh_nghich: `${FEMALE_BASE}/face_tinh_nghich.png`,
+      nghiem_nghi: `${FEMALE_BASE}/face_lanh_lung.png`,
+      ngay_tho: `${FEMALE_BASE}/face_ngay_tho.png`,
+      quyet_tam: `${FEMALE_BASE}/face_lanh_lung.png`,
+      hoang_hot: `${FEMALE_BASE}/face_ngay_tho.png`,
+    },
   },
   weapons: {
     sword: `${MALE_BASE}/weapon_sword.png`,
