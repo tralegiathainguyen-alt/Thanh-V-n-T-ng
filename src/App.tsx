@@ -1999,7 +1999,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
 
       {/* TOP JADE RIBBON HUD */}
       <header className="fixed top-0 inset-x-0 z-30 pointer-events-none px-1 sm:px-3 pt-[max(0.25rem,env(safe-area-inset-top))]">
-        <div className="pointer-events-auto max-w-[1600px] mx-auto jade-hud-bar px-1 sm:px-2 py-0.5 flex items-center justify-between gap-1 sm:gap-2 text-[#F5ECD5] overflow-hidden">
+        <div className="pointer-events-auto max-w-[1600px] mx-auto jade-hud-bar px-1 sm:px-2 py-0.5 flex items-center justify-between gap-1 sm:gap-2 text-[#F5ECD5]">
           {/* Left: Sect Master Avatar + Name + Power + Year */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 sm:flex-initial">
             {(() => {
@@ -2054,6 +2054,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                   return (
                     <div className="relative shrink-0">
                       <button
+                        type="button"
                         onClick={() => {
                           sfx.click();
                           setShowAutoMenu((prev) => !prev);
@@ -2074,10 +2075,10 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                       {showAutoMenu && (
                         <>
                           <div
-                            className="fixed inset-0 z-40"
+                            className="fixed inset-0 z-40 bg-black/25 sm:bg-transparent"
                             onClick={() => setShowAutoMenu(false)}
                           />
-                          <div className="absolute left-0 top-full mt-2 z-50 w-64 rounded-xl bg-[#142725]/96 border-2 border-[#C9A45C] shadow-2xl p-2.5 space-y-1.5 text-xs text-[#F5ECD5]">
+                          <div className="fixed left-2 right-2 top-[calc(58px+env(safe-area-inset-top))] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 z-50 sm:w-64 rounded-xl bg-[#142725]/98 border-2 border-[#C9A45C] shadow-2xl p-2.5 space-y-1.5 text-xs text-[#F5ECD5]">
                             <div className="flex items-center justify-between pb-1.5 border-b border-[#C9A45C]/30">
                               <span className="font-bold text-[#FCE6A6]">Tự Động Hóa VIP</span>
                               <button

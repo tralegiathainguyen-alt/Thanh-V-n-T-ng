@@ -51,7 +51,7 @@ const MAP_ASPECT = MAP_IMG_W / MAP_IMG_H;
 const MAP_VISIBLE_H_RATIO = 0.932;
 
 const MIN_ZOOM = 1.0;
-const MAX_ZOOM = 2.4;
+const MAX_ZOOM = 3.6;
 const ZOOM_STEP = 0.25;
 
 // Internal VFX canvas logical resolution (scales crisply to any zoom/viewport)
@@ -290,6 +290,17 @@ const RESOURCE_LABELS: Record<string, string> = {
 function computeBaseStage(cw: number, ch: number) {
   const safeW = Math.max(cw, 320);
   const safeH = Math.max(ch, 240);
+  const isPortraitMobile = safeW < safeH && safeW < 768;
+
+  if (isPortraitMobile) {
+    // Fit the ENTIRE sect panorama width on portrait phones so players see all buildings at once
+    const width = safeW;
+    const height = width / MAP_ASPECT;
+    const defaultLeft = 0;
+    const defaultTop = Math.max(0, (safeH - height * MAP_VISIBLE_H_RATIO) * 0.48);
+    return { cw: safeW, ch: safeH, width, height, defaultLeft, defaultTop, isPortraitMobile: true };
+  }
+
   const minHForHeight = safeH / MAP_VISIBLE_H_RATIO;
   const minHForWidth = safeW / MAP_ASPECT;
   const height = Math.max(minHForHeight, minHForWidth);
@@ -299,15 +310,22 @@ function computeBaseStage(cw: number, ch: number) {
   // Bias default horizontal framing toward right so both Sơn Môn and Tàng Kinh Các stay visible
   const defaultLeft = -overflowX * 0.92;
   const defaultTop = -overflowY * 0.35;
-  return { cw: safeW, ch: safeH, width, height, defaultLeft, defaultTop };
+  return { cw: safeW, ch: safeH, width, height, defaultLeft, defaultTop, isPortraitMobile: false };
 }
 
 function clampPosition(left: number, top: number, stageW: number, stageH: number, cw: number, ch: number) {
-  const minLeft = Math.min(0, cw - stageW);
-  const minTop = Math.min(0, ch - stageH * MAP_VISIBLE_H_RATIO);
+  const visibleH = stageH * MAP_VISIBLE_H_RATIO;
+  const clampedLeft =
+    stageW <= cw
+      ? (cw - stageW) / 2
+      : Math.min(0, Math.max(cw - stageW, left));
+  const clampedTop =
+    visibleH <= ch
+      ? (ch - visibleH) * 0.48
+      : Math.min(0, Math.max(ch - visibleH, top));
   return {
-    left: Math.min(0, Math.max(minLeft, left)),
-    top: Math.min(0, Math.max(minTop, top)),
+    left: clampedLeft,
+    top: clampedTop,
   };
 }
 
@@ -1775,6 +1793,9 @@ export function SectMapView({
 
   const canPan = stageW > base.cw + 2 || stageH * MAP_VISIBLE_H_RATIO > base.ch + 2;
   const isModifiedCamera = zoom > MIN_ZOOM + 0.01 || camPos !== null;
+  // Scale disciples & building labels proportionally when the full sect is zoomed out on narrow mobile screens
+  const stageUnitScale = Math.max(0.38, Math.min(1, stageW / 960));
+  const stageLabelScale = Math.max(0.58, Math.min(1, stageW / 860));
 
   return (
     <div
@@ -1784,13 +1805,29 @@ export function SectMapView({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onDoubleClick={handleDoubleClick}
-      className={`relative z-0 isolate w-full h-full overflow-hidden select-none bg-[#221A14] touch-none ${
+      className={`relative z-0 isolate w-full h-full overflow-hidden select-none bg-[#122220] touch-none ${
         isDragging ? 'cursor-grabbing' : canPan ? 'cursor-grab' : 'cursor-default'
       }`}
     >
+      {/* Atmospheric Xianxia misty backdrop for portrait mobile full-sect view */}
+      {base.isPortraitMobile && (
+        <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+          <img
+            src="./assets/aistudio/1_80f8120e.png"
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="w-full h-full object-cover scale-125 blur-2xl opacity-45 saturate-90"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0E1E1D]/85 via-[#132624]/35 to-[#0E1E1D]/90" />
+        </div>
+      )}
+
       {/* Aspect-locked stage: background art + occluders + VFX canvas + buildings + disciples share 100% identical coordinates */}
       <div
-        className={`absolute z-0 isolate ${isSmoothZoom ? 'transition-[left,top,width,height] duration-200 ease-out' : ''}`}
+        className={`absolute z-0 isolate ${isSmoothZoom ? 'transition-[left,top,width,height] duration-200 ease-out' : ''} ${
+          base.isPortraitMobile ? 'shadow-[0_0_40px_rgba(0,0,0,0.65)] ring-1 ring-[#C9A45C]/35' : ''
+        }`}
         style={{
           width: `${stageW}px`,
           height: `${stageH}px`,
@@ -1926,6 +1963,11 @@ export function SectMapView({
                   className={`flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-lg bg-[#162928]/90 border text-[#F6EBD0] shadow-md whitespace-nowrap ${
                     canHarvest ? 'border-[#F2D384]/90' : 'border-[#D4B06A]/75'
                   }`}
+                  style={
+                    stageLabelScale < 0.99
+                      ? { transform: `scale(${stageLabelScale.toFixed(3)})`, transformOrigin: 'center center' }
+                      : undefined
+                  }
                 >
                   <BuildingSprite buildingId={bId} className="w-4 h-4" />
                   <span className="text-[11px] sm:text-xs font-semibold tracking-tight">{def.shortName}</span>
@@ -1950,6 +1992,7 @@ export function SectMapView({
           const sheetCfg = getDiscipleSheetConfig(disc.name, disc.element);
           const robeFilter = getDiscipleRobeFilter(disc.id, disc.name, disc.element);
           const realmAura = getRealmAuraConfig(disc.realmIndex, disc.spiritRoot);
+          const effectiveDiscipleScale = mapTuning.discipleScale * stageUnitScale;
           return (
             <button
               key={disc.id}
@@ -1979,8 +2022,8 @@ export function SectMapView({
                   className="transition-transform group-hover:scale-110"
                   style={{
                     transform:
-                      Math.abs(mapTuning.discipleScale - 1) > 0.01
-                        ? `scale(${mapTuning.discipleScale.toFixed(2)})`
+                      Math.abs(effectiveDiscipleScale - 1) > 0.01
+                        ? `scale(${effectiveDiscipleScale.toFixed(3)})`
                         : undefined,
                     transformOrigin: 'bottom center',
                   }}
