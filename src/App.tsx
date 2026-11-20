@@ -741,6 +741,33 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
   // VIP 10+: Tự động hóa đánh Thế Giới (Bí Cảnh & Chọn Boss Đánh) mỗi 5 giây
   useEffect(() => {
     if (vipLevel < 10 || !state.vip.autoWorldEnabled || activeCombat) return;
+    const appendInventorySafe = (
+      current: GameState['inventory'],
+      added: GameState['inventory'],
+      disciples: GameState['disciples'],
+      maxUnequipped = 100,
+    ): GameState['inventory'] => {
+      const equippedIds = new Set<string>();
+      for (const d of disciples) {
+        for (const id of Object.values(d.equipped)) {
+          if (id) equippedIds.add(id);
+        }
+      }
+      const equipped: GameState['inventory'] = [];
+      const unequipped: GameState['inventory'] = [];
+      for (const item of [...added, ...current]) {
+        if (item.equippedBy || equippedIds.has(item.id)) {
+          equipped.push(item);
+        } else {
+          unequipped.push(item);
+        }
+      }
+      if (unequipped.length > maxUnequipped) {
+        unequipped.sort((a, b) => getEquipmentPower(b) - getEquipmentPower(a));
+      }
+      return [...equipped, ...unequipped.slice(0, maxUnequipped)];
+    };
+
     const timer = window.setInterval(() => {
       setState((prev) => {
         if (getVipLevel(prev.vip.points) < 10 || !prev.vip.autoWorldEnabled) return prev;
@@ -794,7 +821,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
               ...prev.defeatedBosses,
               [boss.id]: (prev.defeatedBosses[boss.id] || 0) + 1,
             },
-            inventory: [eq, ...prev.inventory].slice(0, 120),
+            inventory: appendInventorySafe(prev.inventory, [eq], prev.disciples),
             gems: [gem, ...prev.gems].slice(0, 80),
             quests: prev.quests.map((q) =>
               q.id === 'q_daily_1' ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q,
@@ -859,7 +886,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
             linhKhi: prev.resources.linhKhi + realm.rewards.linhKhi,
             tienNgoc: prev.resources.tienNgoc + 15,
           },
-          inventory: [eq, ...prev.inventory].slice(0, 120),
+          inventory: appendInventorySafe(prev.inventory, [eq], prev.disciples),
           gems: [gem, ...prev.gems].slice(0, 80),
           quests: prev.quests.map((q) =>
             q.id === 'q_daily_1' ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q,
