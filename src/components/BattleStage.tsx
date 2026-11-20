@@ -5,6 +5,12 @@ import { formatNum, getElementRelation, DiscipleCombatMods } from '../utils/game
 import { getVfxRingIndexForRealm, getVfxRingPreset } from '../data/vfxRings';
 import { getVfxAuraIndexForRealm } from '../data/vfxAuras';
 import { getCustomAssetUrl } from '../utils/assetOverrides';
+import {
+  PAPER_DOLL_CHANGED_EVENT,
+  PaperDollConfig,
+  loadPaperDollConfig,
+} from '../data/characterPaperDoll';
+import { ChibiPaperDoll } from './ChibiPaperDoll';
 import { VanKiemQuyTongVFX, VanKiemQuyTongVfxHandle } from './VanKiemQuyTongVFX';
 import { CharacterAuraVFX } from './CharacterAuraVFX';
 import { DisciplePortrait, ElementSeal, EnemyUnitSprite, SkillIcon } from './ElementIcons';
@@ -287,14 +293,18 @@ export const BattleStage: React.FC<BattleStageProps> = ({
   };
 
   const [viewportW, setViewportW] = useState<number>(getEffectiveWidth);
+  const [paperDollConfig, setPaperDollConfig] = useState<PaperDollConfig>(() => loadPaperDollConfig());
 
   useEffect(() => {
     const onResize = () => setViewportW(getEffectiveWidth());
+    const onDollChanged = () => setPaperDollConfig(loadPaperDollConfig());
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
+    window.addEventListener(PAPER_DOLL_CHANGED_EVENT, onDollChanged);
     return () => {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', onResize);
+      window.removeEventListener(PAPER_DOLL_CHANGED_EVENT, onDollChanged);
     };
   }, []);
 
@@ -619,7 +629,22 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                         : 'drop-shadow(0 6px 8px rgba(0,0,0,0.5))',
                   }}
                 >
-                  {u.isAlly ? (
+                  {u.isAlly && idx === 0 ? (
+                    <ChibiPaperDoll
+                      config={paperDollConfig}
+                      motionState={
+                        isHit
+                          ? 'hit'
+                          : isActing && (actionAnim?.phase === 'move' || actionAnim?.phase === 'impact')
+                            ? 'attack'
+                            : 'idle'
+                      }
+                      facingLeft={false}
+                      facingBack={false}
+                      size={92}
+                      showVfx={true}
+                    />
+                  ) : u.isAlly ? (
                     <CharacterAuraVFX
                       auraId={getVfxAuraIndexForRealm(u.realmIndex)}
                       characterHeight={82}

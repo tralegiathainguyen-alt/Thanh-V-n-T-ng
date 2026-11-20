@@ -1,7 +1,14 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Eye, EyeOff, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Eye, EyeOff, Minus, Plus, RotateCcw, Shirt } from 'lucide-react';
 import { BUILDING_DEFS, REALM_LADDER, VIP_FASHIONS } from '../data/constants';
 import { BuildingId, GameState, SpiritRootGrade } from '../types/game';
+import {
+  PAPER_DOLL_CHANGED_EVENT,
+  PaperDollConfig,
+  loadPaperDollConfig,
+} from '../data/characterPaperDoll';
+import { SmoothIsoPlayer } from './SmoothIsoPlayer';
+import { CharacterCreatorPanel } from './CharacterCreatorPanel';
 import {
   BuildingSprite,
   CharacterSheetConfig,
@@ -1887,8 +1894,40 @@ export function SectMapView({
         ? `${seasonCycleSec}s`
         : `${Math.round(seasonCycleSec / 60)}p`;
 
+  const [paperDollConfig, setPaperDollConfig] = useState<PaperDollConfig>(() => loadPaperDollConfig());
+  const [showCreator, setShowCreator] = useState(false);
+  const [playerClickTarget, setPlayerClickTarget] = useState<{ x: number; y: number; id: number } | null>(null);
+
+  useEffect(() => {
+    const onChanged = () => setPaperDollConfig(loadPaperDollConfig());
+    window.addEventListener(PAPER_DOLL_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(PAPER_DOLL_CHANGED_EVENT, onChanged);
+  }, []);
+
   const stageParallaxRef = useRef<HTMLDivElement | null>(null);
   const fgAmbientRef = useRef<HTMLDivElement | null>(null);
+
+  const handleMapGroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (dragRef.current.moved) return;
+    const tgt = e.target as HTMLElement | null;
+    if (tgt?.closest('button, [data-camera-control="true"]')) return;
+    const stageEl = stageParallaxRef.current;
+    if (!stageEl) return;
+    const rect = stageEl.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const forced = window.innerHeight > window.innerWidth && window.innerWidth <= 900;
+    let xPct: number;
+    let yPct: number;
+    if (forced) {
+      // In forced 90deg CW landscape rotation: clientY maps along stage width, clientX maps inversely along stage height
+      xPct = ((e.clientY - rect.top) / rect.height) * 100;
+      yPct = ((rect.right - e.clientX) / rect.width) * 100;
+    } else {
+      xPct = ((e.clientX - rect.left) / rect.width) * 100;
+      yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    }
+    setPlayerClickTarget({ x: xPct, y: yPct, id: Date.now() });
+  };
 
   useEffect(() => {
     const el = containerRef.current;
@@ -1946,6 +1985,7 @@ export function SectMapView({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      onClick={handleMapGroundClick}
       onDoubleClick={handleDoubleClick}
       className={`relative z-0 isolate w-full h-full overflow-hidden select-none bg-[#122220] touch-none ${
         isDragging ? 'cursor-grabbing' : canPan ? 'cursor-grab' : 'cursor-default'
@@ -1964,6 +2004,13 @@ export function SectMapView({
           willChange: 'transform',
         }}
       >
+        {/* Controllable 4-Direction Smooth Chibi Paper Doll Main Character */}
+        <SmoothIsoPlayer
+          config={paperDollConfig}
+          playerName={state.disciples[0]?.name || 'Chưởng Môn'}
+          unitScale={stageUnitScale}
+          clickTarget={playerClickTarget}
+        />
         {/* Clean 16:9 Isometric Sect Panorama (4 Seasons: Xuân · Hạ · Thu · Đông with smooth crossfade) */}
         {prevSeasonMeta && (
           <img
@@ -2354,8 +2401,30 @@ export function SectMapView({
             <span>⏱</span>
             <span>{seasonCycleLabel}</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setShowCreator((v) => !v)}
+            title="Tùy biến ngoại hình nhân vật Chibi (Tóc · Biểu cảm · Trang phục · Vòng chân · Aura)"
+            aria-label="Tùy biến ngoại hình nhân vật"
+            className={`w-6 h-6 rounded flex items-center justify-center border-l border-[#C9A45C]/30 ml-0.5 cursor-pointer transition-colors ${
+              showCreator
+                ? 'bg-[#C9A45C] text-[#152826]'
+                : 'text-[#F5D687] hover:bg-[#23423F]'
+            }`}
+          >
+            <Shirt className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
+
+      {/* Quick Icon-Driven Chibi Paper Doll Customizer Drawer */}
+      {showCreator && (
+        <CharacterCreatorPanel
+          config={paperDollConfig}
+          onChange={setPaperDollConfig}
+          onClose={() => setShowCreator(false)}
+        />
+      )}
     </div>
   );
 }
