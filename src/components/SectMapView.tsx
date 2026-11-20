@@ -318,15 +318,19 @@ export function SectMapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const groundVfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const vfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [mapTuning, setMapTuning] = useState<GlobalMapTuning>(() => loadAssetStudioConfig().globalMap);
+  const [studioConfig, setStudioConfig] = useState(() => loadAssetStudioConfig());
+  const mapTuning = studioConfig.globalMap;
+  const studioConfigRef = useRef(studioConfig);
+  studioConfigRef.current = studioConfig;
   const mapTuningRef = useRef<GlobalMapTuning>(mapTuning);
   mapTuningRef.current = mapTuning;
 
   useEffect(() => {
     const onTuningChanged = () => {
-      const next = loadAssetStudioConfig().globalMap;
-      mapTuningRef.current = next;
-      setMapTuning(next);
+      const next = loadAssetStudioConfig();
+      studioConfigRef.current = next;
+      mapTuningRef.current = next.globalMap;
+      setStudioConfig(next);
     };
     window.addEventListener(ASSET_OVERRIDES_EVENT, onTuningChanged);
     return () => window.removeEventListener(ASSET_OVERRIDES_EVENT, onTuningChanged);
@@ -1387,7 +1391,15 @@ export function SectMapView({
             const ringImg = getSectVfxRingImage(aura.vfxRingId);
 
             const tuning = mapTuningRef.current;
-            const ringSpeed = aura.ringSpeed * tuning.ringSpeedMult;
+            const ringSave = studioConfigRef.current.vfxRings?.[aura.vfxRingId];
+            const effSpeedMult = tuning.ringSpeedMult * (ringSave?.rotationSpeed ?? 1);
+            const effScale = tuning.ringScale * (ringSave?.ringScale ?? 1);
+            const effOffsetY = (ringSave?.ringOffsetY ?? tuning.ringOffsetY);
+            const effBloom = ringSave?.bloomIntensity ?? 1.5;
+            const effOpacity = tuning.ringOpacity * Math.min(1.5, 0.72 + effBloom * 0.22);
+            const effParticleMult = ringSave?.particleDensity ?? 1;
+            const showFloorLight = ringSave?.showFloorLight ?? true;
+            const ringSpeed = aura.ringSpeed * effSpeedMult;
 
             // Preset-specific kinetics (smoke_water / cosmic_orbit / rune_circle / lightning_fire)
             let mainAngle = sec * ringSpeed + w.phase;
@@ -1396,7 +1408,7 @@ export function SectMapView({
             let flicker = 1.0;
 
             if (aura.vfxGroup === 'lightning_fire') {
-              const snapStep = Math.floor(sec * 14 * Math.max(0.1, tuning.ringSpeedMult) + w.phase * 5);
+              const snapStep = Math.floor(sec * 14 * Math.max(0.1, effSpeedMult) + w.phase * 5);
               mainAngle = (snapStep * 0.48) % (Math.PI * 2);
               auraAngle = -(snapStep * 0.31) % (Math.PI * 2);
               flicker = 0.8 + ((Math.sin(snapStep * 12.9898) * 43758.5453) % 1 + 1) * 0.22;
@@ -1417,26 +1429,28 @@ export function SectMapView({
             ringCtx.globalCompositeOperation = 'lighter';
 
             // Ambient floor PointLight reflection beneath feet (drawn on ground layer UNDERNEATH feet)
-            const lightR = aura.ringRadius * 1.45 * tuning.ringScale;
+            const lightR = aura.ringRadius * 1.45 * effScale;
             ringCtx.save();
-            ringCtx.translate(cx, cy + tuning.ringOffsetY);
+            ringCtx.translate(cx, cy + effOffsetY);
             ringCtx.scale(1, 0.44);
-            const floorGrad = ringCtx.createRadialGradient(0, 0, 2, 0, 0, lightR);
-            floorGrad.addColorStop(0, aura.glowRgba);
-            floorGrad.addColorStop(1, 'rgba(0,0,0,0)');
-            ringCtx.fillStyle = floorGrad;
-            ringCtx.globalAlpha = Math.min(0.9, (0.36 + aura.tier * 0.06) * flicker * tuning.ringOpacity);
-            ringCtx.beginPath();
-            ringCtx.arc(0, 0, lightR, 0, Math.PI * 2);
-            ringCtx.fill();
+            if (showFloorLight) {
+              const floorGrad = ringCtx.createRadialGradient(0, 0, 2, 0, 0, lightR);
+              floorGrad.addColorStop(0, aura.glowRgba);
+              floorGrad.addColorStop(1, 'rgba(0,0,0,0)');
+              ringCtx.fillStyle = floorGrad;
+              ringCtx.globalAlpha = Math.min(0.95, (0.36 + aura.tier * 0.06) * flicker * effOpacity);
+              ringCtx.beginPath();
+              ringCtx.arc(0, 0, lightR, 0, Math.PI * 2);
+              ringCtx.fill();
+            }
 
             if (ringImg && ringImg.complete && ringImg.naturalWidth > 0) {
-              const drawD = aura.ringRadius * 2.05 * tuning.ringScale;
+              const drawD = aura.ringRadius * 2.05 * effScale;
               // Secondary counter-rotating aura layer (1.12x scale, additive glow)
               ringCtx.save();
               ringCtx.rotate(auraAngle);
               ringCtx.globalCompositeOperation = 'lighter';
-              ringCtx.globalAlpha = Math.min(0.75, (0.34 + aura.tier * 0.04) * flicker * tuning.ringOpacity);
+              ringCtx.globalAlpha = Math.min(0.8, (0.32 + aura.tier * 0.04) * flicker * effOpacity);
               const auraD = drawD * auraScale;
               ringCtx.drawImage(ringImg, -auraD / 2, -auraD / 2, auraD, auraD);
               ringCtx.restore();
@@ -1449,7 +1463,7 @@ export function SectMapView({
               ringCtx.drawImage(ringImg, -drawD / 2, -drawD / 2, drawD, drawD);
               // Additive HDR bloom pass on top for glowing radiance
               ringCtx.globalCompositeOperation = 'lighter';
-              ringCtx.globalAlpha = Math.min(0.85, (0.28 + aura.tier * 0.055) * flicker * tuning.ringOpacity);
+              ringCtx.globalAlpha = Math.min(0.95, (0.24 + effBloom * 0.24) * flicker * tuning.ringOpacity);
               ringCtx.drawImage(ringImg, -drawD * 0.525, -drawD * 0.525, drawD * 1.05, drawD * 1.05);
               ringCtx.restore();
             } else {
@@ -1469,10 +1483,15 @@ export function SectMapView({
             ctx.globalCompositeOperation = 'lighter';
 
             // Orbiting luminous spirit beads (cosmic_orbit / rune_circle / lightning_fire)
-            const orbCount = aura.vfxGroup === 'smoke_water' ? 1 : Math.min(4, 1 + Math.floor(aura.tier / 2));
+            const orbCount =
+              effParticleMult <= 0.05
+                ? 0
+                : aura.vfxGroup === 'smoke_water'
+                  ? 1
+                  : Math.min(5, Math.max(1, Math.round((1 + Math.floor(aura.tier / 2)) * effParticleMult)));
             for (let k = 0; k < orbCount; k++) {
-              const ang = sec * (1.5 + aura.tier * 0.15) + w.phase + (Math.PI * 2 * k) / orbCount;
-              const ox = cx + Math.cos(ang) * (aura.ringRadius * 0.85);
+              const ang = sec * (1.5 + aura.tier * 0.15) * Math.max(0.15, effSpeedMult) + w.phase + (Math.PI * 2 * k) / orbCount;
+              const ox = cx + Math.cos(ang) * (aura.ringRadius * 0.85 * effScale);
               const oy = cy - 14 + Math.sin(ang) * 9 - Math.sin(ang * 2) * 4;
               ctx.fillStyle = k % 2 === 0 ? aura.secondary : aura.primary;
               ctx.globalAlpha = 0.72 * flicker;
@@ -1482,7 +1501,7 @@ export function SectMapView({
             }
 
             // Crackling lightning filaments around body for Đại Thừa/Độ Kiếp or Lôi Biến Dị
-            if (aura.hasLightning && Math.random() < dt * 11) {
+            if (aura.hasLightning && Math.random() < dt * 11 * Math.max(0.2, effParticleMult)) {
               ctx.strokeStyle = aura.tier >= 7 ? '#FEF08A' : '#E9D5FF';
               ctx.globalAlpha = 0.84;
               ctx.lineWidth = 1.3;
@@ -1501,7 +1520,7 @@ export function SectMapView({
             ctx.restore();
 
             // Ascending aura sparkles / outward lightning sparks
-            if (Math.random() < dt * aura.particleRate) {
+            if (Math.random() < dt * aura.particleRate * effParticleMult) {
               const isOutward = aura.vfxGroup === 'lightning_fire';
               const sparkAng = Math.random() * Math.PI * 2;
               particlesRef.current.push({

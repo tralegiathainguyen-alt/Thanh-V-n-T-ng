@@ -206,6 +206,7 @@ export const AssetStudioModal: React.FC<AssetStudioModalProps> = ({
       updatedAt: Date.now(),
       globalMap: { ...DEFAULT_GLOBAL_MAP_TUNING },
       assets: {},
+      vfxRings: {},
     }));
     showNotice('Đã đặt lại toàn bộ tinh chỉnh asset về mặc định!');
   };
@@ -303,6 +304,7 @@ export const AssetStudioModal: React.FC<AssetStudioModalProps> = ({
         updatedAt: Date.now(),
         globalMap: { ...DEFAULT_GLOBAL_MAP_TUNING, ...(parsed.globalMap || {}) },
         assets: parsed.assets || {},
+        vfxRings: parsed.vfxRings || {},
       }));
       sfx.upgrade();
       showNotice(`Đã nhập cấu hình tinh chỉnh từ ${file.name}!`);
@@ -403,6 +405,18 @@ export const AssetStudioModal: React.FC<AssetStudioModalProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              saveAssetStudioConfig(config);
+              sfx.upgrade();
+              showNotice('Đã lưu & áp dụng toàn bộ tinh chỉnh trực tiếp vào game!');
+            }}
+            className="px-3 py-1.5 rounded-lg bg-gradient-to-b from-[#235746] to-[#163B30] hover:from-[#2C6C57] hover:to-[#1C4B3D] border border-[#6EE7B7]/80 text-[#ECFDF5] text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Lưu Vào Game</span>
+          </button>
           <button
             type="button"
             onClick={handleExportConfigJson}

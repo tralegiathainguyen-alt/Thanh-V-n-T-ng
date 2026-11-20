@@ -25,11 +25,22 @@ export interface GlobalMapTuning {
   mapSaturate: number; // 0.5 .. 1.6
 }
 
+export interface VfxRingTuningOverride {
+  rotationSpeed: number; // multiplier 0..3
+  bloomIntensity: number; // 0.5..3.0
+  uvDistortion: number; // 0..2.5
+  particleDensity: number; // 0..2.0
+  showFloorLight: boolean;
+  ringScale: number; // 0.5..2.0
+  ringOffsetY: number; // -24..+24
+}
+
 export interface AssetStudioConfig {
   version: 1;
   updatedAt: number;
   globalMap: GlobalMapTuning;
   assets: Record<string, Partial<AssetTransformOverride>>;
+  vfxRings: Record<number, Partial<VfxRingTuningOverride>>;
 }
 
 export const DEFAULT_ASSET_TRANSFORM: AssetTransformOverride = {
@@ -70,6 +81,7 @@ export function loadAssetStudioConfig(): AssetStudioConfig {
         updatedAt: Date.now(),
         globalMap: { ...DEFAULT_GLOBAL_MAP_TUNING },
         assets: {},
+        vfxRings: {},
       };
     }
     const parsed = JSON.parse(raw) as Partial<AssetStudioConfig>;
@@ -81,6 +93,7 @@ export function loadAssetStudioConfig(): AssetStudioConfig {
         ...(parsed.globalMap || {}),
       },
       assets: parsed.assets || {},
+      vfxRings: parsed.vfxRings || {},
     };
   } catch {
     return {
@@ -88,6 +101,7 @@ export function loadAssetStudioConfig(): AssetStudioConfig {
       updatedAt: Date.now(),
       globalMap: { ...DEFAULT_GLOBAL_MAP_TUNING },
       assets: {},
+      vfxRings: {},
     };
   }
 }
@@ -97,6 +111,7 @@ export function saveAssetStudioConfig(cfg: AssetStudioConfig): void {
     ...cfg,
     version: 1,
     updatedAt: Date.now(),
+    vfxRings: cfg.vfxRings || {},
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -106,6 +121,46 @@ export function saveAssetStudioConfig(cfg: AssetStudioConfig): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(ASSET_OVERRIDES_EVENT, { detail: next }));
   }
+}
+
+export function saveVfxRingTuning(ringId: number, tuning: VfxRingTuningOverride): AssetStudioConfig {
+  const cfg = loadAssetStudioConfig();
+  const next: AssetStudioConfig = {
+    ...cfg,
+    vfxRings: {
+      ...cfg.vfxRings,
+      [ringId]: { ...tuning },
+    },
+  };
+  saveAssetStudioConfig(next);
+  return next;
+}
+
+export function saveAllVfxRingsTuning(tuning: VfxRingTuningOverride): AssetStudioConfig {
+  const cfg = loadAssetStudioConfig();
+  const nextRings: Record<number, Partial<VfxRingTuningOverride>> = {};
+  for (let id = 1; id <= 16; id++) {
+    nextRings[id] = { ...tuning };
+  }
+  const next: AssetStudioConfig = {
+    ...cfg,
+    vfxRings: nextRings,
+  };
+  saveAssetStudioConfig(next);
+  return next;
+}
+
+export function resetVfxRingTuning(ringId?: number): AssetStudioConfig {
+  const cfg = loadAssetStudioConfig();
+  const nextRings = { ...cfg.vfxRings };
+  if (ringId === undefined) {
+    Object.keys(nextRings).forEach((k) => delete nextRings[Number(k)]);
+  } else {
+    delete nextRings[ringId];
+  }
+  const next: AssetStudioConfig = { ...cfg, vfxRings: nextRings };
+  saveAssetStudioConfig(next);
+  return next;
 }
 
 export function getResolvedAssetTransform(
