@@ -394,7 +394,7 @@ function buildCatalog(): AssetCatalogEntry[] {
       id: 'map_season_dong',
       name: 'Bản Đồ Sơn Môn — Mùa Đông (2752x1536)',
       category: 'map',
-      url: './assets/aistudio/sect_dong.jpg',
+      url: './assets/aistudio/sect_dong.png',
       kind: 'map',
     },
     {

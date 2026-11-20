@@ -24,7 +24,7 @@ const SECT_SEASONS: Array<{ id: SectSeason; assetId: string; label: string; icon
   { id: 'xuan', assetId: 'map_season_xuan', label: 'Xuân', icon: '🌸', bgUrl: './assets/aistudio/sect_xuan.png' },
   { id: 'ha', assetId: 'map_season_ha', label: 'Hạ', icon: '☀', bgUrl: './assets/aistudio/sect_ha.png' },
   { id: 'thu', assetId: 'map_main', label: 'Thu', icon: '🍁', bgUrl: './assets/aistudio/1_80f8120e.png' },
-  { id: 'dong', assetId: 'map_season_dong', label: 'Đông', icon: '❄', bgUrl: './assets/aistudio/sect_dong.jpg' },
+  { id: 'dong', assetId: 'map_season_dong', label: 'Đông', icon: '❄', bgUrl: './assets/aistudio/sect_dong.png' },
 ];
 import {
   ASSET_OVERRIDES_EVENT,
