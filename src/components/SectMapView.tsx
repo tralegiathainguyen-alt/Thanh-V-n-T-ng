@@ -21,7 +21,7 @@ import { SectAmbientVFX, SectSeason } from './SectAmbientVFX';
 
 const SECT_SEASON_STORAGE_KEY = 'thanh_van_sect_season';
 const SECT_SEASONS: Array<{ id: SectSeason; label: string; icon: string; bgUrl: string }> = [
-  { id: 'xuan', label: 'Xuân', icon: '🌸', bgUrl: './assets/aistudio/sect_xuan.jpg' },
+  { id: 'xuan', label: 'Xuân', icon: '🌸', bgUrl: './assets/aistudio/sect_xuan.png' },
   { id: 'ha', label: 'Hạ', icon: '☀', bgUrl: './assets/aistudio/sect_ha.jpg' },
   { id: 'thu', label: 'Thu', icon: '🍁', bgUrl: './assets/aistudio/1_80f8120e.png' },
   { id: 'dong', label: 'Đông', icon: '❄', bgUrl: './assets/aistudio/sect_dong.jpg' },
