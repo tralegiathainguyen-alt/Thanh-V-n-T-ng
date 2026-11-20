@@ -58,6 +58,7 @@ import { OfflineIdleModal } from './components/OfflineIdleModal';
 import { VipModal } from './components/VipModal';
 import { AuthScreen } from './components/AuthScreen';
 import { AccountModal } from './components/AccountModal';
+import { VfxShowcaseModal } from './components/VfxShowcaseModal';
 import { DisciplePortrait, ResourceIcon } from './components/ElementIcons';
 import {
   UserAccount,
@@ -96,6 +97,10 @@ import {
 } from 'lucide-react';
 
 export default function App() {
+  const [standaloneVfxDemo, setStandaloneVfxDemo] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('vfx-demo') === '1';
+  });
   const [booting, setBooting] = useState(true);
   const [session, setSession] = useState<{ account: UserAccount; state: GameState } | null>(null);
 
@@ -114,6 +119,20 @@ export default function App() {
       active = false;
     };
   }, []);
+
+  if (standaloneVfxDemo) {
+    return (
+      <VfxShowcaseModal
+        standalone
+        onClose={() => {
+          setStandaloneVfxDemo(false);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('vfx-demo');
+          window.history.replaceState({}, '', url.toString());
+        }}
+      />
+    );
+  }
 
   if (booting) {
     return (
@@ -2221,6 +2240,18 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
             <button
               onClick={() => {
                 sfx.click();
+                setActiveModal('vfx_demo');
+              }}
+              title="Phòng thử nghiệm 16 hiệu ứng VFX Cảnh Giới"
+              aria-label="Phòng thử nghiệm 16 hiệu ứng VFX Cảnh Giới"
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#1C243C]/95 hover:bg-[#283457] border border-[#7DD3FC]/60 text-[#BAE6FD] text-[11px] font-sans font-semibold cursor-pointer shrink-0 shadow transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#FDE047]" />
+              <span className="hidden xl:inline">VFX 16</span>
+            </button>
+            <button
+              onClick={() => {
+                sfx.click();
                 setActiveModal('account');
               }}
               title="Tài khoản & Sao lưu dữ liệu"
@@ -2825,6 +2856,10 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
           onRestoreState={handleRestoreState}
           onLogout={handleLogoutSession}
         />
+      )}
+
+      {activeModal === 'vfx_demo' && (
+        <VfxShowcaseModal onClose={() => setActiveModal(null)} />
       )}
 
       {/* TURN-BASED COMBAT OVERLAY */}

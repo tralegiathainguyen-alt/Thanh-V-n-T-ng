@@ -14,6 +14,21 @@ import {
   getRealmAuraConfig,
 } from './ElementIcons';
 
+import { getVfxRingPreset } from '../data/vfxRings';
+
+const sectVfxRingCache = new Map<number, HTMLImageElement>();
+function getSectVfxRingImage(ringId: number): HTMLImageElement | null {
+  if (typeof Image === 'undefined') return null;
+  let img = sectVfxRingCache.get(ringId);
+  if (!img) {
+    const preset = getVfxRingPreset(ringId);
+    img = new Image();
+    img.src = preset.additiveUrl;
+    sectVfxRingCache.set(ringId, img);
+  }
+  return img;
+}
+
 interface SectMapViewProps {
   state: GameState;
   onSelectBuilding: (id: BuildingId) => void;
@@ -1338,66 +1353,105 @@ export function SectMapView({
             }
           });
 
-          // 0.5) Draw live Realm & Spirit-Root Auras (Kim Đan -> Nguyên Anh -> Hóa Thần -> Độ Kiếp) around disciples
+          // 0.5) Draw live 16-tier Additive VFX Magic Rings (Luyện Khí -> Độ Kiếp) beneath disciples
           for (const id of Object.keys(walkers)) {
             const w = walkers[id];
             const aura = w.realmAura;
             if (!aura) continue;
             const cx = (w.x / 100) * VFX_W;
             const cy = ((w.y + w.currentLiftPct) / 100) * VFX_H;
+            const ringImg = getSectVfxRingImage(aura.vfxRingId);
+
+            // Preset-specific kinetics (smoke_water / cosmic_orbit / rune_circle / lightning_fire)
+            let mainAngle = sec * aura.ringSpeed + w.phase;
+            let auraAngle = -sec * aura.ringSpeed * 0.72 + w.phase;
+            let auraScale = 1.12 + Math.sin(sec * 2.2 + w.phase) * 0.04;
+            let flicker = 1.0;
+
+            if (aura.vfxGroup === 'lightning_fire') {
+              const snapStep = Math.floor(sec * 14 + w.phase * 5);
+              mainAngle = (snapStep * 0.48) % (Math.PI * 2);
+              auraAngle = -(snapStep * 0.31) % (Math.PI * 2);
+              flicker = 0.8 + ((Math.sin(snapStep * 12.9898) * 43758.5453) % 1 + 1) * 0.22;
+              auraScale = 1.14 + Math.sin(sec * 7.5 + w.phase) * 0.05;
+            } else if (aura.vfxGroup === 'rune_circle') {
+              mainAngle = sec * aura.ringSpeed * 0.52 + w.phase;
+              auraAngle = -sec * aura.ringSpeed * 0.78 + w.phase;
+              auraScale = 1.12 + Math.sin(sec * 1.8 + w.phase) * 0.05;
+              flicker = 0.92 + Math.sin(sec * 2.3 + w.phase) * 0.1;
+            } else if (aura.vfxGroup === 'smoke_water') {
+              mainAngle = sec * aura.ringSpeed * 0.65 + w.phase;
+              auraAngle = -sec * aura.ringSpeed * 0.42 + w.phase;
+              flicker = 0.88 + Math.sin(sec * 1.9 + w.phase) * 0.1;
+            }
 
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            // Soft isometric rotating aura ring beneath feet
+
+            // Ambient floor PointLight reflection beneath feet
+            const lightR = aura.ringRadius * 1.45;
             ctx.save();
             ctx.translate(cx, cy - 1);
-            ctx.scale(1, 0.42);
-            ctx.rotate(sec * aura.ringSpeed + w.phase);
-            ctx.strokeStyle = aura.primary;
-            ctx.globalAlpha = 0.42 + aura.tier * 0.045;
-            ctx.lineWidth = 1.6 + aura.tier * 0.14;
-            ctx.setLineDash([8, 6]);
+            ctx.scale(1, 0.44);
+            const floorGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, lightR);
+            floorGrad.addColorStop(0, aura.glowRgba);
+            floorGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = floorGrad;
+            ctx.globalAlpha = Math.min(0.85, (0.36 + aura.tier * 0.06) * flicker);
             ctx.beginPath();
-            ctx.arc(0, 0, aura.ringRadius, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.setLineDash([]);
+            ctx.arc(0, 0, lightR, 0, Math.PI * 2);
+            ctx.fill();
 
-            // Counter-rotating sacred inner ring for Hóa Thần+
-            if (aura.dualRing) {
-              ctx.rotate(-sec * aura.ringSpeed * 2.1);
-              ctx.strokeStyle = aura.secondary;
-              ctx.globalAlpha = 0.52;
-              ctx.lineWidth = 1.3;
-              ctx.beginPath();
-              for (let k = 0; k < 6; k++) {
-                const a = (Math.PI * 2 * k) / 6;
-                const rx = Math.cos(a) * (aura.ringRadius * 0.68);
-                const ry = Math.sin(a) * (aura.ringRadius * 0.68);
-                if (k === 0) ctx.moveTo(rx, ry);
-                else ctx.lineTo(rx, ry);
+            if (ringImg && ringImg.complete && ringImg.naturalWidth > 0) {
+              const drawD = aura.ringRadius * 2.45;
+              // Secondary counter-rotating aura layer (1.12x scale, softer opacity)
+              ctx.save();
+              ctx.rotate(auraAngle);
+              ctx.globalAlpha = Math.min(0.75, (0.36 + aura.tier * 0.04) * flicker);
+              const auraD = drawD * auraScale;
+              ctx.drawImage(ringImg, -auraD / 2, -auraD / 2, auraD, auraD);
+              ctx.restore();
+
+              // Primary additive VFX ring layer
+              ctx.save();
+              ctx.rotate(mainAngle);
+              ctx.globalAlpha = Math.min(1, (0.76 + aura.tier * 0.03) * flicker);
+              ctx.drawImage(ringImg, -drawD / 2, -drawD / 2, drawD, drawD);
+              // HDR bloom double pass for higher realms (Kim Đan+)
+              if (aura.tier >= 2) {
+                ctx.globalAlpha = Math.min(0.7, (0.22 + aura.tier * 0.05) * flicker);
+                ctx.drawImage(ringImg, -drawD * 0.53, -drawD * 0.53, drawD * 1.06, drawD * 1.06);
               }
-              ctx.closePath();
+              ctx.restore();
+            } else {
+              // Brief fallback while sprite loads
+              ctx.rotate(mainAngle);
+              ctx.strokeStyle = aura.primary;
+              ctx.globalAlpha = 0.45;
+              ctx.lineWidth = 1.6;
+              ctx.beginPath();
+              ctx.arc(0, 0, aura.ringRadius, 0, Math.PI * 2);
               ctx.stroke();
             }
             ctx.restore();
 
-            // Orbiting luminous spirit beads around the body
-            const orbCount = Math.min(4, 1 + Math.floor(aura.tier / 2));
+            // Orbiting luminous spirit beads (cosmic_orbit / rune_circle / lightning_fire)
+            const orbCount = aura.vfxGroup === 'smoke_water' ? 1 : Math.min(4, 1 + Math.floor(aura.tier / 2));
             for (let k = 0; k < orbCount; k++) {
               const ang = sec * (1.5 + aura.tier * 0.15) + w.phase + (Math.PI * 2 * k) / orbCount;
-              const ox = cx + Math.cos(ang) * (aura.ringRadius * 0.82);
+              const ox = cx + Math.cos(ang) * (aura.ringRadius * 0.85);
               const oy = cy - 14 + Math.sin(ang) * 9 - Math.sin(ang * 2) * 4;
               ctx.fillStyle = k % 2 === 0 ? aura.secondary : aura.primary;
-              ctx.globalAlpha = 0.72;
+              ctx.globalAlpha = 0.72 * flicker;
               ctx.beginPath();
-              ctx.arc(ox, oy, 1.8 + aura.tier * 0.14, 0, Math.PI * 2);
+              ctx.arc(ox, oy, 1.6 + aura.tier * 0.13, 0, Math.PI * 2);
               ctx.fill();
             }
 
-            // Crackling lightning filaments around body for Độ Kiếp or Lôi Biến Dị
+            // Crackling lightning filaments around body for Đại Thừa/Độ Kiếp or Lôi Biến Dị
             if (aura.hasLightning && Math.random() < dt * 11) {
               ctx.strokeStyle = aura.tier >= 7 ? '#FEF08A' : '#E9D5FF';
-              ctx.globalAlpha = 0.82;
+              ctx.globalAlpha = 0.84;
               ctx.lineWidth = 1.3;
               const a0 = Math.random() * Math.PI * 2;
               let lx = cx + Math.cos(a0) * 14;
@@ -1413,19 +1467,21 @@ export function SectMapView({
             }
             ctx.restore();
 
-            // Subtle ascending realm aura sparks
+            // Ascending aura sparkles / outward lightning sparks
             if (Math.random() < dt * aura.particleRate) {
+              const isOutward = aura.vfxGroup === 'lightning_fire';
+              const sparkAng = Math.random() * Math.PI * 2;
               particlesRef.current.push({
                 kind: w.spiritRoot === 'bien_di_bang' ? 'snowflake' : 'qi',
                 x: cx + (Math.random() - 0.5) * (aura.ringRadius * 1.4),
                 y: cy - 2 - Math.random() * 14,
-                vx: (Math.random() - 0.5) * 8,
-                vy: -16 - Math.random() * 18,
+                vx: isOutward ? Math.cos(sparkAng) * (18 + Math.random() * 22) : (Math.random() - 0.5) * 8,
+                vy: isOutward ? -10 - Math.random() * 20 : -16 - Math.random() * 18,
                 size: w.spiritRoot === 'bien_di_bang' ? 2.6 + Math.random() * 1.5 : 1.4 + Math.random() * 1.5,
                 rot: Math.random() * Math.PI,
                 vrot: (Math.random() - 0.5) * 3,
                 life: 0,
-                maxLife: 0.65 + Math.random() * 0.4,
+                maxLife: isOutward ? 0.42 + Math.random() * 0.3 : 0.65 + Math.random() * 0.4,
                 color: Math.random() < 0.5 ? aura.secondary : aura.primary,
               });
             }

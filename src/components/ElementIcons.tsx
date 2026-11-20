@@ -15,6 +15,7 @@ import {
   SpiritRootGrade,
   VipFashionId,
 } from '../types/game';
+import { getVfxRingIndexForRealm, getVfxRingPreset, VfxRingGroup } from '../data/vfxRings';
 import { X } from 'lucide-react';
 
 export type ResourceSpriteKey =
@@ -277,7 +278,9 @@ export function getDiscipleRobeFilter(
 }
 
 export interface RealmAuraConfig {
-  tier: number; // 1 = Kim Đan .. 7 = Độ Kiếp
+  tier: number; // 0 = Luyện Khí .. 8 = Độ Kiếp
+  vfxRingId: number; // 1..16
+  vfxGroup: VfxRingGroup;
   primary: string;
   secondary: string;
   glowRgba: string;
@@ -292,148 +295,24 @@ export function getRealmAuraConfig(
   realmIndex?: number,
   spiritRoot?: SpiritRootGrade,
 ): RealmAuraConfig | null {
-  const majorIdx = realmIndex !== undefined ? Math.floor(realmIndex / 3) : 0;
-  const isMutantRoot =
-    spiritRoot === 'bien_di_loi' || spiritRoot === 'bien_di_bang' || spiritRoot === 'bien_di_phong';
-
-  // Luyện Khí (0) & Trúc Cơ (1): ordinary ground aura unless Mutant Spirit Root
-  if (majorIdx < 2) {
-    if (!isMutantRoot) return null;
-    if (spiritRoot === 'bien_di_loi') {
-      return {
-        tier: 1,
-        primary: '#A855F7',
-        secondary: '#E9D5FF',
-        glowRgba: 'rgba(168, 85, 247, 0.36)',
-        ringRadius: 19,
-        ringSpeed: 1.1,
-        dualRing: false,
-        hasLightning: true,
-        particleRate: 4.5,
-      };
-    }
-    if (spiritRoot === 'bien_di_bang') {
-      return {
-        tier: 1,
-        primary: '#38BDF8',
-        secondary: '#E0F2FE',
-        glowRgba: 'rgba(56, 189, 248, 0.35)',
-        ringRadius: 19,
-        ringSpeed: 0.9,
-        dualRing: false,
-        hasLightning: false,
-        particleRate: 4.5,
-      };
-    }
-    return {
-      tier: 1,
-      primary: '#10B981',
-      secondary: '#D1FAE5',
-      glowRgba: 'rgba(16, 185, 129, 0.35)',
-      ringRadius: 19,
-      ringSpeed: 1.25,
-      dualRing: false,
-      hasLightning: false,
-      particleRate: 4.5,
-    };
-  }
-
+  if (realmIndex === undefined) return null;
+  const majorIdx = Math.max(0, Math.min(8, Math.floor(realmIndex / 3)));
+  const ringId = getVfxRingIndexForRealm(realmIndex);
+  const preset = getVfxRingPreset(ringId);
   const hasRootLightning = spiritRoot === 'bien_di_loi';
-  if (majorIdx === 2) {
-    // Kim Đan
-    return {
-      tier: 1,
-      primary: '#F59E0B',
-      secondary: '#FEF08A',
-      glowRgba: 'rgba(245, 158, 11, 0.42)',
-      ringRadius: 21,
-      ringSpeed: 0.9,
-      dualRing: false,
-      hasLightning: hasRootLightning,
-      particleRate: 5.5,
-    };
-  }
-  if (majorIdx === 3) {
-    // Nguyên Anh
-    return {
-      tier: 2,
-      primary: '#38BDF8',
-      secondary: '#BAE6FD',
-      glowRgba: 'rgba(56, 189, 248, 0.48)',
-      ringRadius: 23,
-      ringSpeed: 1.15,
-      dualRing: false,
-      hasLightning: hasRootLightning,
-      particleRate: 7.5,
-    };
-  }
-  if (majorIdx === 4) {
-    // Hóa Thần
-    return {
-      tier: 3,
-      primary: '#A855F7',
-      secondary: '#FDE68A',
-      glowRgba: 'rgba(168, 85, 247, 0.52)',
-      ringRadius: 25,
-      ringSpeed: 1.35,
-      dualRing: true,
-      hasLightning: hasRootLightning,
-      particleRate: 9.5,
-    };
-  }
-  if (majorIdx === 5) {
-    // Luyện Hư
-    return {
-      tier: 4,
-      primary: '#F97316',
-      secondary: '#FEF08A',
-      glowRgba: 'rgba(249, 115, 22, 0.55)',
-      ringRadius: 26,
-      ringSpeed: 1.5,
-      dualRing: true,
-      hasLightning: hasRootLightning,
-      particleRate: 11,
-    };
-  }
-  if (majorIdx === 6) {
-    // Hợp Thể
-    return {
-      tier: 5,
-      primary: '#EF4444',
-      secondary: '#34D399',
-      glowRgba: 'rgba(239, 68, 68, 0.56)',
-      ringRadius: 28,
-      ringSpeed: 1.65,
-      dualRing: true,
-      hasLightning: hasRootLightning,
-      particleRate: 12.5,
-    };
-  }
-  if (majorIdx === 7) {
-    // Đại Thừa
-    return {
-      tier: 6,
-      primary: '#FACC15',
-      secondary: '#FFFBEB',
-      glowRgba: 'rgba(250, 204, 21, 0.62)',
-      ringRadius: 30,
-      ringSpeed: 1.85,
-      dualRing: true,
-      hasLightning: hasRootLightning,
-      particleRate: 14,
-    };
-  }
-  // Độ Kiếp (majorIdx >= 8)
+
   return {
-    tier: 7,
-    primary: '#FDE047',
-    secondary: '#C084FC',
-    glowRgba: 'rgba(253, 224, 71, 0.68)',
-    ringRadius: 32,
-    ringSpeed: 2.15,
-    dualRing: true,
-    hasLightning: true,
-    particleRate: 17,
+    tier: majorIdx,
+    vfxRingId: ringId,
+    vfxGroup: preset.group,
+    primary: preset.primaryColor,
+    secondary: preset.secondaryColor,
+    glowRgba: preset.glowRgba,
+    ringRadius: 17 + majorIdx * 2.1,
+    ringSpeed: preset.defaultSpeed * 1.15,
+    dualRing: majorIdx >= 2,
+    hasLightning: hasRootLightning || ringId >= 14,
+    particleRate: 3.5 + majorIdx * 1.7,
   };
 }
 
@@ -752,23 +631,31 @@ export function DisciplePortrait({
             style={{ background: fashion.bgGradient }}
           />
         )}
-        {!fashion && realmAura && (
-          <>
-            <div
-              className="absolute inset-1.5 rounded-full opacity-40 blur-sm pointer-events-none"
-              style={{
-                background: `radial-gradient(circle, ${realmAura.secondary}55 0%, ${realmAura.primary}35 55%, transparent 75%)`,
-              }}
-            />
-            <div
-              className="absolute inset-x-2 bottom-0.5 h-3 rounded-full pointer-events-none opacity-80"
-              style={{
-                border: `1.5px solid ${realmAura.primary}`,
-                boxShadow: `0 0 8px ${realmAura.glowRgba}`,
-              }}
-            />
-          </>
-        )}
+        {!fashion && realmAura && (() => {
+          const ringPreset = getVfxRingPreset(realmAura.vfxRingId);
+          return (
+            <>
+              <div
+                className="absolute inset-1 rounded-full opacity-45 blur-sm pointer-events-none"
+                style={{
+                  background: `radial-gradient(circle, ${realmAura.secondary}55 0%, ${realmAura.primary}38 55%, transparent 75%)`,
+                }}
+              />
+              <img
+                src={ringPreset.additiveUrl}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                className="absolute inset-x-0 -bottom-2 w-full aspect-square object-contain pointer-events-none mix-blend-screen opacity-90 animate-spin"
+                style={{
+                  transform: 'scaleY(0.42)',
+                  animationDuration: `${Math.max(4, Math.round(14 / Math.max(0.35, ringPreset.defaultSpeed)))}s`,
+                  filter: `drop-shadow(0 0 6px ${realmAura.glowRgba})`,
+                }}
+              />
+            </>
+          );
+        })()}
         <div
           className="relative z-10 w-full h-full"
           style={robeFilter ? { filter: robeFilter } : undefined}
