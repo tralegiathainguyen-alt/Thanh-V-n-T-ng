@@ -32,11 +32,12 @@ interface VfxShowcaseModalProps {
 }
 
 const GROUPS: VfxRingGroup[] = ['smoke_water', 'cosmic_orbit', 'rune_circle', 'lightning_fire'];
+type LayerViewMode = 'both' | 'ring_only' | 'aura_only';
 
 function getEffectiveTuningForRing(
   ringId: number,
   savedMap: Record<number, Partial<VfxRingTuningOverride>>,
-): VfxRingTuningOverride {
+): Required<VfxRingTuningOverride> {
   const p = getVfxRingPreset(ringId);
   const saved = savedMap[ringId] || {};
   return {
@@ -47,6 +48,10 @@ function getEffectiveTuningForRing(
     showFloorLight: saved.showFloorLight ?? true,
     ringScale: saved.ringScale ?? 1.0,
     ringOffsetY: saved.ringOffsetY ?? 2,
+    auraEnabled: saved.auraEnabled ?? true,
+    auraScale: saved.auraScale ?? 1.0,
+    auraOffsetY: saved.auraOffsetY ?? 0,
+    auraOpacity: saved.auraOpacity ?? 0.85,
   };
 }
 
@@ -67,6 +72,14 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
   const [ringScale, setRingScale] = useState<number>(initialTuning.ringScale);
   const [ringOffsetY, setRingOffsetY] = useState<number>(initialTuning.ringOffsetY);
   const [showFloorLight, setShowFloorLight] = useState<boolean>(initialTuning.showFloorLight);
+
+  // Surrounding Body Aura controls
+  const [auraEnabled, setAuraEnabled] = useState<boolean>(initialTuning.auraEnabled);
+  const [auraScale, setAuraScale] = useState<number>(initialTuning.auraScale);
+  const [auraOffsetY, setAuraOffsetY] = useState<number>(initialTuning.auraOffsetY);
+  const [auraOpacity, setAuraOpacity] = useState<number>(initialTuning.auraOpacity);
+
+  const [layerView, setLayerView] = useState<LayerViewMode>('both');
   const [isometric, setIsometric] = useState<boolean>(true);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
@@ -87,6 +100,10 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
     setRingScale(eff.ringScale);
     setRingOffsetY(eff.ringOffsetY);
     setShowFloorLight(eff.showFloorLight);
+    setAuraEnabled(eff.auraEnabled);
+    setAuraScale(eff.auraScale);
+    setAuraOffsetY(eff.auraOffsetY);
+    setAuraOpacity(eff.auraOpacity);
   };
 
   const resetCurrentRing = () => {
@@ -101,7 +118,11 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
     setRingScale(1.0);
     setRingOffsetY(2);
     setShowFloorLight(true);
-    flashNotice(`Đã đặt lại vòng #${String(selectedId).padStart(2, '0')} về mặc định & cập nhật game!`);
+    setAuraEnabled(true);
+    setAuraScale(1.0);
+    setAuraOffsetY(0);
+    setAuraOpacity(0.85);
+    flashNotice(`Đã đặt lại vòng & hào quang #${String(selectedId).padStart(2, '0')} về mặc định!`);
   };
 
   const currentPayload = (): VfxRingTuningOverride => ({
@@ -112,6 +133,10 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
     showFloorLight,
     ringScale,
     ringOffsetY,
+    auraEnabled,
+    auraScale,
+    auraOffsetY,
+    auraOpacity,
   });
 
   const handleSaveCurrentRing = () => {
@@ -119,7 +144,7 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
     setSavedRings(nextCfg.vfxRings);
     sfx.upgrade();
     flashNotice(
-      `Đã lưu & áp dụng vòng #${String(selectedId).padStart(2, '0')} (${selected.name}) trực tiếp vào game!`,
+      `Đã lưu & áp dụng cả 2 lớp VFX #${String(selectedId).padStart(2, '0')} (${selected.name}) trực tiếp vào game!`,
     );
   };
 
@@ -127,8 +152,11 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
     const nextCfg = saveAllVfxRingsTuning(currentPayload());
     setSavedRings(nextCfg.vfxRings);
     sfx.upgrade();
-    flashNotice('Đã lưu & áp dụng thông số hiện tại cho toàn bộ 16 vòng VFX trong game!');
+    flashNotice('Đã lưu & áp dụng thông số hiện tại cho toàn bộ 16 vòng + 16 hào quang quanh thân!');
   };
+
+  const showRing = layerView === 'both' || layerView === 'ring_only';
+  const showAura = (layerView === 'both' || layerView === 'aura_only') && auraEnabled;
 
   return (
     <div
@@ -137,7 +165,7 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
       } bg-[#060B0E] text-[#EAF4F0] flex flex-col overflow-hidden`}
     >
       {/* Top Studio Header */}
-      <header className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-[#0A1318]/95 border-b border-[#D4A24C]/30 shrink-0">
+      <header className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 py-3 bg-[#0A1318]/95 border-b border-[#D4A24C]/30 shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1C3D38] to-[#0D1E1D] border border-[#D4A24C]/70 flex items-center justify-center text-[#FCE6A6] shrink-0 shadow-lg">
             <Sparkles className="w-5 h-5" />
@@ -147,29 +175,53 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
               className="text-base sm:text-xl font-bold text-[#FCE6A6] truncate"
               style={{ fontFamily: 'var(--font-display)' }}
             >
-              Tinh Chỉnh 16 Trận Pháp VFX · Lưu &amp; Áp Dụng Live Vào Game
+              Tinh Chỉnh 16 VFX Dưới Chân &amp; Quanh Thân · Lưu Live Vào Game
             </h1>
             <p className="text-[11px] text-[#8FB3A8] truncate">
-              Chọn vòng → Kéo thanh trượt tinh chỉnh → Bấm &quot;Lưu Vào Game&quot; để hiển thị ngay dưới chân đệ tử
+              2 lớp đồng bộ: Trận pháp dưới chân (z-60) + Hào quang cuộn quanh thân (z-1120) · Bấm Lưu để áp dụng ngay
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+          <div className="flex items-center rounded-lg bg-[#0F1B21] border border-[#243B44] p-0.5">
+            {(
+              [
+                ['both', 'Cả 2 Lớp'],
+                ['ring_only', 'Dưới Chân'],
+                ['aura_only', 'Quanh Thân'],
+              ] as [LayerViewMode, string][]
+            ).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  sfx.click();
+                  setLayerView(m);
+                }}
+                className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer transition-colors ${
+                  layerView === m ? 'bg-[#1D3B37] text-[#FCE6A6]' : 'text-[#8FB3A8] hover:text-[#D5EAE2]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <button
             type="button"
             onClick={() => {
               sfx.click();
               setIsometric((v) => !v);
             }}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors ${
               isometric
                 ? 'bg-[#1D3B37] border-[#D4A24C] text-[#FCE6A6]'
                 : 'bg-[#111E24] border-[#2C444D] text-[#A8C4BC]'
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
-            {isometric ? 'Góc Nhìn Mặt Sàn (3D)' : 'Góc Nhìn Phẳng (2D)'}
+            {isometric ? '3D Sàn' : '2D Phẳng'}
           </button>
 
           {onClose && (
@@ -201,8 +253,8 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
           {/* LEFT: WebGL Spotlight Stage + Tuning Controls */}
           <div className="lg:col-span-5 space-y-4">
             {/* Simulated Dark Stone Floor Stage */}
-            <div className="relative rounded-2xl overflow-hidden border border-[#243B44] bg-[#070D11] shadow-2xl min-h-[320px] sm:min-h-[360px] flex flex-col items-center justify-center p-4">
-              {/* Perspective Grid Floor to clearly display ambient light reflection */}
+            <div className="relative rounded-2xl overflow-hidden border border-[#243B44] bg-[#070D11] shadow-2xl min-h-[340px] sm:min-h-[370px] flex flex-col items-center justify-center p-4">
+              {/* Perspective Grid Floor */}
               <div
                 className="absolute inset-0 pointer-events-none opacity-35"
                 style={{
@@ -213,7 +265,7 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
                   transformOrigin: 'center center',
                 }}
               />
-              {/* Ambient colored floor pool reflecting onto stone grid */}
+              {/* Ambient colored floor pool */}
               {showFloorLight && (
                 <div
                   className="absolute inset-x-6 bottom-6 h-40 rounded-full pointer-events-none blur-2xl transition-all duration-300"
@@ -225,7 +277,7 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
               )}
 
               {/* Ring Badge */}
-              <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
+              <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-20">
                 <span className="px-2.5 py-1 rounded-full bg-[#0C181E]/90 border border-[#D4A24C]/50 text-[#FCE6A6] text-xs font-bold">
                   #{String(selected.id).padStart(2, '0')} · {selected.name}
                 </span>
@@ -234,27 +286,60 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
                 </span>
               </div>
 
-              {/* WebGL Shader MagicRingVFX */}
-              <div
-                className="relative z-10 flex items-center justify-center my-4 transition-transform"
-                style={{
-                  transform: `translateY(${ringOffsetY}px) scale(${ringScale.toFixed(2)})`,
-                }}
-              >
-                <MagicRingVFX
-                  ringId={selected.id}
-                  size={250}
-                  rotationSpeed={rotationSpeed}
-                  bloomIntensity={bloomIntensity}
-                  uvDistortion={uvDistortion}
-                  particleDensity={particleDensity}
-                  isometric={isometric}
-                  showFloorLight={showFloorLight}
-                  renderMode="webgl"
-                />
+              {/* Layered Preview: Underfoot Ring + Disciple Preview + Swirling Body Aura */}
+              <div className="relative z-10 w-[260px] h-[250px] flex items-center justify-center my-2">
+                {showRing && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center transition-transform"
+                    style={{
+                      transform: `translateY(${(isometric ? 36 : 0) + ringOffsetY}px) scale(${ringScale.toFixed(2)})`,
+                    }}
+                  >
+                    <MagicRingVFX
+                      ringId={selected.id}
+                      size={235}
+                      rotationSpeed={rotationSpeed}
+                      bloomIntensity={bloomIntensity}
+                      uvDistortion={uvDistortion}
+                      particleDensity={particleDensity}
+                      isometric={isometric}
+                      showFloorLight={showFloorLight}
+                      renderMode="webgl"
+                    />
+                  </div>
+                )}
+
+                {/* Sample Sect Master character standing in the middle so user can see exact 3D layering */}
+                {layerView === 'both' && (
+                  <div
+                    className="relative z-10 w-28 h-28 pointer-events-none"
+                    style={{
+                      backgroundImage: `url("./assets/sprites/characters/diep_thanh_van_sheet.png")`,
+                      backgroundSize: '400% 400%',
+                      backgroundPosition: '0% 0%',
+                      filter: `drop-shadow(0 0 ${Math.round(6 * bloomIntensity)}px ${selected.glowRgba}) drop-shadow(0 6px 10px rgba(0,0,0,0.6))`,
+                    }}
+                  />
+                )}
+
+                {/* Swirling Surrounding Body Aura Layer */}
+                {showAura && (
+                  <img
+                    src={selected.auraAdditiveUrl}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    className="absolute z-20 w-44 h-44 object-contain pointer-events-none mix-blend-screen animate-pulse"
+                    style={{
+                      transform: `translateY(${auraOffsetY - (layerView === 'both' ? 10 : 0)}px) scale(${auraScale.toFixed(2)})`,
+                      opacity: Math.min(1, auraOpacity),
+                      filter: `brightness(${(0.85 + bloomIntensity * 0.25).toFixed(2)}) drop-shadow(0 0 ${Math.round(8 * bloomIntensity)}px ${selected.glowRgba})`,
+                    }}
+                  />
+                )}
               </div>
 
-              <div className="relative z-10 text-center text-xs text-[#9AB8B0]">
+              <div className="relative z-20 text-center text-xs text-[#9AB8B0]">
                 <span className="font-semibold text-[#E8F4F0]">{selected.realmLabel}</span> ·{' '}
                 <span>{selected.rowTitle}</span>
               </div>
@@ -265,7 +350,7 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#FCE6A6]">
                   <Sliders className="w-4 h-4" />
-                  Tinh Chỉnh Shader &amp; VFX Trực Tiếp
+                  Tinh Chỉnh Shader &amp; 2 Lớp VFX
                 </div>
                 <button
                   type="button"
@@ -277,10 +362,10 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
                 </button>
               </div>
 
-              {/* Slider 1: Rotation Speed */}
+              {/* Core Shader Sliders */}
               <div>
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-[#A8C4BC]">Tốc Độ Xoay</span>
+                  <span className="text-[#A8C4BC]">Tốc Độ Xoay &amp; Dao Động</span>
                   <span className="font-mono font-bold text-[#FCE6A6]">{rotationSpeed.toFixed(2)}x</span>
                 </div>
                 <input
@@ -294,7 +379,6 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
                 />
               </div>
 
-              {/* Slider 2: Bloom / HDR Intensity */}
               <div>
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-[#A8C4BC]">Cường Độ Bloom / HDR Emissive</span>
@@ -311,45 +395,44 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
                 />
               </div>
 
-              {/* Slider 3: UV Noise Distortion */}
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-[#A8C4BC]">Độ Méo UV Noise (Uốn Lượn Năng Lượng)</span>
-                  <span className="font-mono font-bold text-[#C084FC]">{uvDistortion.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={2.5}
-                  step={0.05}
-                  value={uvDistortion}
-                  onChange={(e) => setUvDistortion(parseFloat(e.target.value))}
-                  className="w-full accent-[#C084FC] cursor-pointer"
-                />
-              </div>
-
-              {/* Slider 4: Particle Density */}
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-[#A8C4BC]">Mật Độ Hạt Bay (Sparkles)</span>
-                  <span className="font-mono font-bold text-[#6EE7B7]">{Math.round(particleDensity * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={2.0}
-                  step={0.05}
-                  value={particleDensity}
-                  onChange={(e) => setParticleDensity(parseFloat(e.target.value))}
-                  className="w-full accent-[#34D399] cursor-pointer"
-                />
-              </div>
-
-              {/* Slider 5: In-Game Ring Scale & Vertical Offset */}
-              <div className="grid grid-cols-2 gap-3 pt-1 border-t border-[#1A2D36]">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-[#A8C4BC]">Cỡ vòng trong game</span>
+                    <span className="text-[#A8C4BC]">Độ Méo UV Noise</span>
+                    <span className="font-mono font-bold text-[#C084FC]">{uvDistortion.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={2.5}
+                    step={0.05}
+                    value={uvDistortion}
+                    onChange={(e) => setUvDistortion(parseFloat(e.target.value))}
+                    className="w-full accent-[#C084FC] cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-[#A8C4BC]">Mật Độ Hạt Bay</span>
+                    <span className="font-mono font-bold text-[#6EE7B7]">{Math.round(particleDensity * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={2.0}
+                    step={0.05}
+                    value={particleDensity}
+                    onChange={(e) => setParticleDensity(parseFloat(e.target.value))}
+                    className="w-full accent-[#34D399] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Layer 1: Underfoot Ring Calibration */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#1A2D36]">
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-[#A8C4BC]">Cỡ vòng dưới chân</span>
                     <span className="font-mono font-bold text-[#FDE047]">{ringScale.toFixed(2)}x</span>
                   </div>
                   <input
@@ -381,6 +464,74 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
                 </div>
               </div>
 
+              {/* Layer 2: Surrounding Body Aura Calibration */}
+              <div className="space-y-2 pt-2 border-t border-[#1A2D36]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#F0ABFC]">
+                    Hào Quang Quanh Thân (hieuungxq)
+                  </span>
+                  <label className="flex items-center gap-1.5 text-[11px] text-[#C8E0D8] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={auraEnabled}
+                      onChange={(e) => setAuraEnabled(e.target.checked)}
+                      className="accent-[#D946EF]"
+                    />
+                    Hiển thị
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <div className="flex justify-between text-[10px] mb-1">
+                      <span className="text-[#A8C4BC]">Cỡ</span>
+                      <span className="font-mono font-bold text-[#F0ABFC]">{auraScale.toFixed(2)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.5}
+                      max={2.0}
+                      step={0.05}
+                      value={auraScale}
+                      onChange={(e) => setAuraScale(parseFloat(e.target.value))}
+                      className="w-full accent-[#D946EF] cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[10px] mb-1">
+                      <span className="text-[#A8C4BC]">Độ cao Y</span>
+                      <span className="font-mono font-bold text-[#F0ABFC]">
+                        {auraOffsetY > 0 ? `+${auraOffsetY}` : auraOffsetY}px
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={-28}
+                      max={28}
+                      step={1}
+                      value={auraOffsetY}
+                      onChange={(e) => setAuraOffsetY(parseInt(e.target.value, 10))}
+                      className="w-full accent-[#D946EF] cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[10px] mb-1">
+                      <span className="text-[#A8C4BC]">Độ rõ</span>
+                      <span className="font-mono font-bold text-[#F0ABFC]">{Math.round(auraOpacity * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.1}
+                      max={1.4}
+                      step={0.05}
+                      value={auraOpacity}
+                      onChange={(e) => setAuraOpacity(parseFloat(e.target.value))}
+                      className="w-full accent-[#D946EF] cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <label className="flex items-center gap-2 text-xs text-[#A8C4BC] pt-0.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -399,7 +550,7 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
                   className="py-2.5 px-3 rounded-xl bg-gradient-to-b from-[#235746] to-[#163B30] hover:from-[#2C6C57] hover:to-[#1C4B3D] border border-[#6EE7B7]/80 text-[#ECFDF5] text-xs font-bold shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  Lưu Vòng #{String(selectedId).padStart(2, '0')} Vào Game
+                  Lưu #{String(selectedId).padStart(2, '0')} Vào Game
                 </button>
                 <button
                   type="button"
@@ -413,7 +564,7 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
             </div>
           </div>
 
-          {/* RIGHT: All 16 VFX Rings Grouped by 4 Cultivation Tiers */}
+          {/* RIGHT: All 16 VFX Pairs Grouped by 4 Cultivation Tiers */}
           <div className="lg:col-span-7 space-y-4">
             {GROUPS.map((groupKey) => {
               const meta = VFX_GROUP_LABELS[groupKey];
@@ -445,7 +596,7 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
                       const isSel = ring.id === selectedId;
                       const isSaved = Boolean(savedRings[ring.id]);
                       const cardTuning = isSel
-                        ? currentPayload()
+                        ? getEffectiveTuningForRing(ring.id, { [ring.id]: currentPayload() })
                         : getEffectiveTuningForRing(ring.id, savedRings);
 
                       return (
@@ -479,18 +630,33 @@ export const VfxShowcaseModal: React.FC<VfxShowcaseModalProps> = ({
                             </div>
                           </div>
 
-                          <div className="my-1 flex items-center justify-center">
-                            <MagicRingVFX
-                              ringId={ring.id}
-                              size={112}
-                              rotationSpeed={cardTuning.rotationSpeed}
-                              bloomIntensity={cardTuning.bloomIntensity}
-                              uvDistortion={cardTuning.uvDistortion}
-                              particleDensity={cardTuning.particleDensity * 0.75}
-                              isometric={isometric}
-                              showFloorLight={cardTuning.showFloorLight}
-                              renderMode="canvas2d"
-                            />
+                          <div className="relative my-1 w-[112px] h-[112px] flex items-center justify-center">
+                            {showRing && (
+                              <MagicRingVFX
+                                ringId={ring.id}
+                                size={112}
+                                rotationSpeed={cardTuning.rotationSpeed}
+                                bloomIntensity={cardTuning.bloomIntensity}
+                                uvDistortion={cardTuning.uvDistortion}
+                                particleDensity={cardTuning.particleDensity * 0.75}
+                                isometric={isometric}
+                                showFloorLight={cardTuning.showFloorLight}
+                                renderMode="canvas2d"
+                              />
+                            )}
+                            {(layerView === 'both' || layerView === 'aura_only') && cardTuning.auraEnabled && (
+                              <img
+                                src={ring.auraAdditiveUrl}
+                                alt=""
+                                aria-hidden="true"
+                                draggable={false}
+                                className="absolute inset-0 m-auto w-20 h-20 object-contain pointer-events-none mix-blend-screen animate-pulse"
+                                style={{
+                                  opacity: Math.min(1, cardTuning.auraOpacity),
+                                  transform: `translateY(${layerView === 'both' ? -10 : 0}px) scale(${cardTuning.auraScale.toFixed(2)})`,
+                                }}
+                              />
+                            )}
                           </div>
 
                           <div className="w-full text-center mt-1">

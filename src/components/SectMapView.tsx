@@ -34,6 +34,19 @@ function getSectVfxRingImage(ringId: number): HTMLImageElement | null {
   return img;
 }
 
+const sectVfxAuraCache = new Map<number, HTMLImageElement>();
+function getSectVfxAuraImage(ringId: number): HTMLImageElement | null {
+  if (typeof Image === 'undefined') return null;
+  let img = sectVfxAuraCache.get(ringId);
+  if (!img) {
+    const preset = getVfxRingPreset(ringId);
+    img = new Image();
+    img.src = preset.auraTransparentUrl;
+    sectVfxAuraCache.set(ringId, img);
+  }
+  return img;
+}
+
 interface SectMapViewProps {
   state: GameState;
   onSelectBuilding: (id: BuildingId) => void;
@@ -1481,6 +1494,41 @@ export function SectMapView({
 
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
+
+            // Surrounding body-aura ribbons (vfx_auras/aura_01..16) swirling organically around torso
+            const auraEnabled = ringSave?.auraEnabled ?? true;
+            const bodyAuraImg = auraEnabled ? getSectVfxAuraImage(aura.vfxRingId) : null;
+            if (bodyAuraImg && bodyAuraImg.complete && bodyAuraImg.naturalWidth > 0) {
+              const effAuraScale = (ringSave?.auraScale ?? 1) * tuning.discipleScale;
+              const effAuraOffsetY = ringSave?.auraOffsetY ?? 0;
+              const effAuraOpacity = ringSave?.auraOpacity ?? 0.85;
+              const auraSize = (38 + aura.tier * 2.8) * effAuraScale;
+              const waveT = sec * (1.8 + aura.tier * 0.12) * Math.max(0.2, effSpeedMult) + w.phase;
+              const bobY = Math.sin(waveT) * 2.5;
+              const swayX = Math.cos(waveT * 0.85) * 1.4;
+              const breathScaleX = 1 + Math.sin(waveT * 1.1) * 0.06;
+              const breathScaleY = 1 + Math.cos(waveT * 1.3) * 0.05;
+              const tilt =
+                aura.vfxGroup === 'lightning_fire'
+                  ? (Math.sin(Math.floor(sec * 14 + w.phase * 5) * 7.13) * 0.09)
+                  : Math.sin(waveT * 0.7) * 0.07;
+
+              ctx.save();
+              ctx.translate(cx + swayX, cy - 22 + effAuraOffsetY + bobY);
+              ctx.rotate(tilt);
+              ctx.scale(breathScaleX, breathScaleY);
+
+              // Crisp translucent ribbon body
+              ctx.globalCompositeOperation = 'source-over';
+              ctx.globalAlpha = Math.min(0.95, 0.68 * effAuraOpacity * flicker);
+              ctx.drawImage(bodyAuraImg, -auraSize / 2, -auraSize / 2, auraSize, auraSize);
+
+              // Additive HDR glow halo pass
+              ctx.globalCompositeOperation = 'lighter';
+              ctx.globalAlpha = Math.min(0.88, (0.28 + effBloom * 0.2) * effAuraOpacity * flicker);
+              ctx.drawImage(bodyAuraImg, -auraSize * 0.53, -auraSize * 0.53, auraSize * 1.06, auraSize * 1.06);
+              ctx.restore();
+            }
 
             // Orbiting luminous spirit beads (cosmic_orbit / rune_circle / lightning_fire)
             const orbCount =

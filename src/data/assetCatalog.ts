@@ -3,6 +3,7 @@ import { VFX_RING_PRESETS } from './vfxRings';
 export type AssetCategoryId =
   | 'characters'
   | 'vfx_rings'
+  | 'vfx_auras'
   | 'buildings'
   | 'bosses'
   | 'monsters'
@@ -30,7 +31,8 @@ export interface AssetCatalogEntry {
 
 export const ASSET_CATEGORIES: { id: AssetCategoryId; label: string }[] = [
   { id: 'characters', label: 'Nhân Vật' },
-  { id: 'vfx_rings', label: 'VFX 16 Vòng' },
+  { id: 'vfx_rings', label: 'VFX Dưới Chân' },
+  { id: 'vfx_auras', label: 'VFX Quanh Thân' },
   { id: 'buildings', label: 'Công Trình' },
   { id: 'bosses', label: 'Boss' },
   { id: 'monsters', label: 'Quái Bí Cảnh' },
@@ -203,6 +205,14 @@ function buildCatalog(): AssetCatalogEntry[] {
       category: 'vfx_rings',
       url: ring.transparentUrl,
       kind: 'vfx_ring',
+      vfxRingId: ring.id,
+    });
+    list.push({
+      id: `vfx_aura_${String(ring.id).padStart(2, '0')}`,
+      name: `Quanh Thân #${String(ring.id).padStart(2, '0')} · ${ring.name}`,
+      category: 'vfx_auras',
+      url: ring.auraTransparentUrl,
+      kind: 'sprite',
       vfxRingId: ring.id,
     });
   }

@@ -12,6 +12,8 @@ export interface VfxRingPreset {
   glowRgba: string;
   transparentUrl: string;
   additiveUrl: string;
+  auraTransparentUrl: string;
+  auraAdditiveUrl: string;
   defaultSpeed: number;
   defaultBloom: number;
   defaultUvDistortion: number;
@@ -51,7 +53,8 @@ function makePreset(
   glowRgba: string,
   defaults?: { speed?: number; bloom?: number; uv?: number; particles?: number },
 ): VfxRingPreset {
-  const code = `ring_${String(id).padStart(2, '0')}`;
+  const num = String(id).padStart(2, '0');
+  const code = `ring_${num}`;
   return {
     id,
     code,
@@ -64,6 +67,8 @@ function makePreset(
     glowRgba,
     transparentUrl: `./assets/vfx_rings/transparent/${code}.png`,
     additiveUrl: `./assets/vfx_rings/additive/${code}.png`,
+    auraTransparentUrl: `./assets/vfx_auras/transparent/aura_${num}.png`,
+    auraAdditiveUrl: `./assets/vfx_auras/additive/aura_${num}.png`,
     defaultSpeed: defaults?.speed ?? (group === 'smoke_water' ? 0.55 : group === 'cosmic_orbit' ? 0.95 : group === 'rune_circle' ? 0.45 : 1.35),
     defaultBloom: defaults?.bloom ?? (group === 'smoke_water' ? 1.55 : group === 'cosmic_orbit' ? 1.9 : group === 'rune_circle' ? 1.85 : 2.25),
     defaultUvDistortion: defaults?.uv ?? (group === 'smoke_water' ? 1.25 : group === 'cosmic_orbit' ? 0.45 : group === 'rune_circle' ? 0.35 : 0.9),

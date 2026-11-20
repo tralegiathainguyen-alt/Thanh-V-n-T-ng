@@ -653,6 +653,16 @@ export function DisciplePortrait({
                   filter: `drop-shadow(0 0 6px ${realmAura.glowRgba})`,
                 }}
               />
+              <img
+                src={ringPreset.auraTransparentUrl}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                className="absolute inset-0 z-20 w-full h-full object-contain pointer-events-none opacity-75 animate-pulse"
+                style={{
+                  filter: `drop-shadow(0 0 5px ${realmAura.glowRgba})`,
+                }}
+              />
             </>
           );
         })()}
