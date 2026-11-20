@@ -8,10 +8,20 @@ export interface VfxAuraPreset {
   motion: VfxAuraMotion;
   primaryColor: string;
   secondaryColor: string;
+  /** Seamless 1024x128 RGBA horizontal ribbon texture URL */
+  ribbonUrl: string;
+  /** Optional second intertwining ribbon (e.g. Độ Kiếp Viên Mãn gold + rainbow!) */
+  secondaryRibbonUrl?: string;
+  /** Legacy static preview URL (also points to ribbonUrl for gallery thumbnails) */
   url: string;
-  heightRatio: number; // 1.4 .. 1.7x character height
-  backOpacity: number; // 0.85 .. 1.0
-  frontOpacity: number; // 0.25 .. 0.40
+  heightRatio: number; // 1.4 .. 1.65x character height
+  turns: number; // number of helical wraps around torso
+  ribbonThickness: number; // visual thickness multiplier
+  scrollSpeed: number; // UV flow speed along the 3D helix
+}
+
+function rUrl(n: number): string {
+  return `./assets/vfx_ribbons/ribbon_${String(n).padStart(2, '0')}.png`;
 }
 
 function makeAura(
@@ -21,9 +31,17 @@ function makeAura(
   motion: VfxAuraMotion,
   primaryColor: string,
   secondaryColor: string,
-  opts?: { heightRatio?: number; backOpacity?: number; frontOpacity?: number },
+  ribbonNum: number,
+  opts?: {
+    secondaryRibbonNum?: number;
+    turns?: number;
+    thickness?: number;
+    scrollSpeed?: number;
+    heightRatio?: number;
+  },
 ): VfxAuraPreset {
   const code = `aura_${String(id).padStart(2, '0')}`;
+  const ribbonUrl = rUrl(ribbonNum);
   return {
     id,
     code,
@@ -32,33 +50,38 @@ function makeAura(
     motion,
     primaryColor,
     secondaryColor,
-    url: `./assets/vfx_auras/${code}.png`,
-    heightRatio: opts?.heightRatio ?? (motion === 'ascend' ? 1.7 : motion === 'fire' ? 1.55 : 1.5),
-    backOpacity: opts?.backOpacity ?? 0.92,
-    frontOpacity: opts?.frontOpacity ?? 0.32,
+    ribbonUrl,
+    secondaryRibbonUrl: opts?.secondaryRibbonNum ? rUrl(opts.secondaryRibbonNum) : undefined,
+    url: ribbonUrl,
+    heightRatio: opts?.heightRatio ?? 1.48,
+    turns: opts?.turns ?? 1.45,
+    ribbonThickness: opts?.thickness ?? 1.0,
+    scrollSpeed:
+      opts?.scrollSpeed ??
+      (motion === 'lightning' ? 1.45 : motion === 'fire' ? 1.15 : motion === 'ascend' ? 0.95 : 0.65),
   };
 }
 
 export const VFX_AURA_PRESETS: VfxAuraPreset[] = [
-  makeAura(1, 'Bạch Vụ Linh Khí', 'Luyện Khí Sơ Kỳ', 'flow_ribbon', '#CBD5E1', '#F8FAFC', { heightRatio: 1.42, backOpacity: 0.9, frontOpacity: 0.28 }),
-  makeAura(2, 'Thanh Thủy Lưu Ba', 'Luyện Khí Hậu Kỳ', 'flow_ribbon', '#38BDF8', '#BAE6FD', { heightRatio: 1.45 }),
-  makeAura(3, 'Thương Lam Tuyền Khí', 'Trúc Cơ Sơ–Trung Kỳ', 'flow_ribbon', '#2563EB', '#7DD3FC', { heightRatio: 1.48 }),
-  makeAura(4, 'Hàn Băng Lưu Vân', 'Trúc Cơ Viên Mãn', 'flow_ribbon', '#0EA5E9', '#E0F2FE', { heightRatio: 1.5 }),
+  makeAura(1, 'Bạch Vụ Ngân Ti', 'Luyện Khí Sơ Kỳ', 'flow_ribbon', '#CBD5E1', '#F8FAFC', 1, { turns: 1.25, thickness: 0.9, scrollSpeed: 0.5 }),
+  makeAura(2, 'Thanh Thủy Lưu Ba', 'Luyện Khí Hậu Kỳ', 'flow_ribbon', '#38BDF8', '#BAE6FD', 2, { turns: 1.35, thickness: 0.95, scrollSpeed: 0.6 }),
+  makeAura(3, 'Thương Lam Tuyền Khí', 'Trúc Cơ Sơ–Trung Kỳ', 'flow_ribbon', '#2563EB', '#7DD3FC', 2, { turns: 1.45, thickness: 1.0, scrollSpeed: 0.7 }),
+  makeAura(4, 'Hàn Băng Tuyết Vũ', 'Trúc Cơ Viên Mãn', 'flow_ribbon', '#0EA5E9', '#E0F2FE', 3, { turns: 1.45, thickness: 1.05, scrollSpeed: 0.65 }),
 
-  makeAura(5, 'Kim Ti Linh Khí', 'Kim Đan Sơ–Trung Kỳ', 'flow_ribbon', '#F59E0B', '#FEF08A', { heightRatio: 1.5 }),
-  makeAura(6, 'Kim Quang Tinh Vũ', 'Kim Đan Viên Mãn', 'flow_ribbon', '#FACC15', '#FFFBEB', { heightRatio: 1.54, frontOpacity: 0.36 }),
-  makeAura(7, 'Tử Hà Phiêu Lụa', 'Nguyên Anh Sơ–Trung Kỳ', 'flow_ribbon', '#E879F9', '#F5D0FE', { heightRatio: 1.52 }),
-  makeAura(8, 'Huyền Tử Chân Nguyên', 'Nguyên Anh Viên Mãn', 'flow_ribbon', '#9333EA', '#E9D5FF', { heightRatio: 1.54 }),
+  makeAura(5, 'Kim Ti Linh Khí', 'Kim Đan Sơ–Trung Kỳ', 'flow_ribbon', '#F59E0B', '#FEF08A', 4, { turns: 1.45, thickness: 1.05, scrollSpeed: 0.72 }),
+  makeAura(6, 'Hoàng Kim Tiên Ti', 'Kim Đan Viên Mãn', 'flow_ribbon', '#FACC15', '#FFFBEB', 4, { turns: 1.55, thickness: 1.12, scrollSpeed: 0.8 }),
+  makeAura(7, 'Tinh Hà Tử Khí', 'Nguyên Anh Sơ–Trung Kỳ', 'flow_ribbon', '#E879F9', '#F5D0FE', 8, { turns: 1.5, thickness: 1.1, scrollSpeed: 0.72 }),
+  makeAura(8, 'Tử Tiêu Lôi Điện', 'Nguyên Anh Viên Mãn', 'lightning', '#A855F7', '#E9D5FF', 5, { turns: 1.45, thickness: 1.05, scrollSpeed: 1.35 }),
 
-  makeAura(9, 'Bích Ngọc Thanh Phong', 'Hóa Thần Sơ–Trung Kỳ', 'flow_ribbon', '#10B981', '#A7F3D0', { heightRatio: 1.54 }),
-  makeAura(10, 'Tinh Tú Ngân Hà', 'Hóa Thần Viên Mãn', 'flow_ribbon', '#3B82F6', '#93C5FD', { heightRatio: 1.58, backOpacity: 0.96, frontOpacity: 0.34 }),
-  makeAura(11, 'Huyết Sát Ma Khí', 'Luyện Hư Kỳ', 'flow_ribbon', '#B91C1C', '#FCA5A5', { heightRatio: 1.58, backOpacity: 0.96, frontOpacity: 0.3 }),
-  makeAura(12, 'Tử Kim Tiên Lụa', 'Hợp Thể Kỳ', 'flow_ribbon', '#A855F7', '#FDE047', { heightRatio: 1.6, frontOpacity: 0.35 }),
+  makeAura(9, 'Thanh Mộc Đằng Diệp', 'Hóa Thần Sơ–Trung Kỳ', 'flow_ribbon', '#22C55E', '#BBF7D0', 7, { turns: 1.55, thickness: 1.08, scrollSpeed: 0.65 }),
+  makeAura(10, 'Tinh Tú Ngân Hà', 'Hóa Thần Viên Mãn', 'flow_ribbon', '#C084FC', '#93C5FD', 8, { turns: 1.6, thickness: 1.15, scrollSpeed: 0.75 }),
+  makeAura(11, 'Hắc Ám Ma Khí', 'Luyện Hư Kỳ', 'flow_ribbon', '#7E22CE', '#3B0764', 9, { turns: 1.55, thickness: 1.15, scrollSpeed: 0.85 }),
+  makeAura(12, 'Tử Kim Lôi Khí', 'Hợp Thể Kỳ', 'lightning', '#A855F7', '#FDE047', 5, { secondaryRibbonNum: 4, turns: 1.5, thickness: 1.05, scrollSpeed: 1.2 }),
 
-  makeAura(13, 'Cửu U Chân Hỏa', 'Đại Thừa Sơ–Trung Kỳ', 'fire', '#F97316', '#FEF08A', { heightRatio: 1.58, backOpacity: 0.95, frontOpacity: 0.38 }),
-  makeAura(14, 'Cửu Tiêu Kim Lôi', 'Đại Thừa Viên Mãn', 'lightning', '#FACC15', '#FFFBEB', { heightRatio: 1.56, backOpacity: 0.95, frontOpacity: 0.4 }),
-  makeAura(15, 'Ngũ Sắc Tiên Lụa', 'Độ Kiếp Sơ–Trung Kỳ', 'flow_ribbon', '#F472B6', '#67E8F9', { heightRatio: 1.62, backOpacity: 0.94, frontOpacity: 0.36 }),
-  makeAura(16, 'Phi Thăng Chí Tôn Quang', 'Độ Kiếp Viên Mãn', 'ascend', '#F59E0B', '#E879F9', { heightRatio: 1.7, backOpacity: 0.96, frontOpacity: 0.38 }),
+  makeAura(13, 'Xích Viêm Chân Hỏa', 'Đại Thừa Sơ–Trung Kỳ', 'fire', '#F97316', '#FEF08A', 6, { turns: 1.55, thickness: 1.15, scrollSpeed: 1.2 }),
+  makeAura(14, 'Cửu Tiêu Kim Lôi', 'Đại Thừa Viên Mãn', 'lightning', '#FACC15', '#FFFBEB', 10, { turns: 1.5, thickness: 1.12, scrollSpeed: 1.5 }),
+  makeAura(15, 'Ngũ Sắc Cầu Vồng', 'Độ Kiếp Sơ–Trung Kỳ', 'flow_ribbon', '#F472B6', '#67E8F9', 11, { turns: 1.55, thickness: 1.15, scrollSpeed: 0.88 }),
+  makeAura(16, 'Chí Tôn Kim Quang Ngũ Sắc', 'Độ Kiếp Viên Mãn', 'ascend', '#F59E0B', '#E879F9', 12, { secondaryRibbonNum: 11, turns: 1.55, thickness: 1.12, scrollSpeed: 0.95, heightRatio: 1.55 }),
 ];
 
 export function getVfxAuraPreset(auraId: number): VfxAuraPreset {
