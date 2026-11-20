@@ -7,16 +7,16 @@ import React, { useEffect, useRef } from 'react';
  */
 export const AMBIENT_ANCHORS = {
   waterfall: {
-    xMin: 0.88,
-    xMax: 0.98,
-    yMin: 0.68,
-    yMax: 0.92,
-    mistX: 0.93,
-    mistY: 0.86,
-    streamXMin: 0.86,
-    streamXMax: 0.98,
-    streamYMin: 0.82,
-    streamYMax: 0.92,
+    falls: [
+      { xMin: 0.84, xMax: 0.869, yMin: 0.215, yMax: 0.39, mistX: 0.854, mistY: 0.39 },
+      { xMin: 0.79, xMax: 0.84, yMin: 0.445, yMax: 0.58, mistX: 0.815, mistY: 0.58 },
+      { xMin: 0.737, xMax: 0.806, yMin: 0.655, yMax: 0.845, mistX: 0.772, mistY: 0.842 },
+    ],
+    pools: [
+      { cx: 0.836, cy: 0.418, rx: 0.026, ry: 0.02 },
+      { cx: 0.78, cy: 0.618, rx: 0.044, ry: 0.028 },
+      { cx: 0.752, cy: 0.88, rx: 0.062, ry: 0.032 },
+    ],
   },
   leftForge: {
     xMin: 0.16,
@@ -69,6 +69,7 @@ interface SectAmbientVFXProps {
 }
 
 interface FoamStreak {
+  tierIdx: number;
   xFrac: number;
   yFrac: number;
   speed: number;
@@ -78,6 +79,7 @@ interface FoamStreak {
 }
 
 interface MistPuff {
+  tierIdx: number;
   xFrac: number;
   yFrac: number;
   rFrac: number;
@@ -88,9 +90,20 @@ interface MistPuff {
   maxAlpha: number;
 }
 
+interface LakeRipple {
+  poolIdx: number;
+  cxFrac: number;
+  cyFrac: number;
+  age: number;
+  life: number;
+  maxRxFrac: number;
+}
+
 interface WaterGlint {
+  poolIdx: number;
   xFrac: number;
   yFrac: number;
+  driftX: number;
   phase: number;
   freq: number;
   size: number;
@@ -273,34 +286,63 @@ export const SectAmbientVFX: React.FC<SectAmbientVFXProps> = ({
     const cf = AMBIENT_ANCHORS.centerFurnace;
     const hg = AMBIENT_ANCHORS.herbGarden;
 
-    // World layer pools (~65 particles)
-    const foamStreaks: FoamStreak[] = Array.from({ length: 14 }, () => ({
-      xFrac: rand(wf.xMin + 0.01, wf.xMax - 0.01),
-      yFrac: rand(wf.yMin, wf.yMax),
-      speed: rand(0.11, 0.19),
-      lenFrac: rand(0.035, 0.07),
-      width: rand(1.4, 3.2),
-      alpha: rand(0.18, 0.42),
-    }));
+    // World layer pools (3-tier waterfall + 3 pools + forge + herb garden)
+    const foamStreaks: FoamStreak[] = Array.from({ length: 24 }, (_, i) => {
+      const tierIdx = i < 7 ? 0 : i < 15 ? 1 : 2;
+      const fall = wf.falls[tierIdx];
+      return {
+        tierIdx,
+        xFrac: rand(fall.xMin + 0.003, fall.xMax - 0.003),
+        yFrac: rand(fall.yMin, fall.yMax),
+        speed: rand(0.14, 0.24),
+        lenFrac: rand(0.032, 0.068),
+        width: rand(1.6, 3.6),
+        alpha: rand(0.32, 0.68),
+      };
+    });
 
-    const mistPuffs: MistPuff[] = Array.from({ length: 8 }, (_, i) => ({
-      xFrac: rand(wf.mistX - 0.045, wf.mistX + 0.045),
-      yFrac: rand(wf.mistY - 0.02, wf.mistY + 0.04),
-      rFrac: rand(0.028, 0.052),
-      vx: rand(-0.006, 0.005),
-      vy: rand(-0.014, -0.007),
-      age: (i / 8) * 3.2,
-      life: rand(2.6, 3.8),
-      maxAlpha: rand(0.14, 0.26),
-    }));
+    const mistPuffs: MistPuff[] = Array.from({ length: 12 }, (_, i) => {
+      const tierIdx = i % 3;
+      const fall = wf.falls[tierIdx];
+      return {
+        tierIdx,
+        xFrac: rand(fall.mistX - 0.022, fall.mistX + 0.022),
+        yFrac: rand(fall.mistY - 0.01, fall.mistY + 0.015),
+        rFrac: tierIdx === 2 ? rand(0.024, 0.044) : rand(0.016, 0.03),
+        vx: rand(-0.005, 0.005),
+        vy: rand(-0.013, -0.006),
+        age: (i / 12) * 3.0,
+        life: rand(2.2, 3.4),
+        maxAlpha: rand(0.22, 0.38),
+      };
+    });
 
-    const waterGlints: WaterGlint[] = Array.from({ length: 7 }, () => ({
-      xFrac: rand(wf.streamXMin, wf.streamXMax),
-      yFrac: rand(wf.streamYMin, wf.streamYMax),
-      phase: rand(0, Math.PI * 2),
-      freq: rand(2.2, 4.4),
-      size: rand(2.0, 4.2),
-    }));
+    const lakeRipples: LakeRipple[] = Array.from({ length: 6 }, (_, i) => {
+      const poolIdx = i % 3;
+      const pool = wf.pools[poolIdx];
+      return {
+        poolIdx,
+        cxFrac: pool.cx + rand(-pool.rx * 0.35, pool.rx * 0.35),
+        cyFrac: pool.cy + rand(-pool.ry * 0.25, pool.ry * 0.25),
+        age: (i / 6) * 2.8,
+        life: rand(2.4, 3.4),
+        maxRxFrac: pool.rx * rand(0.42, 0.72),
+      };
+    });
+
+    const waterGlints: WaterGlint[] = Array.from({ length: 10 }, (_, i) => {
+      const poolIdx = i % 3;
+      const pool = wf.pools[poolIdx];
+      return {
+        poolIdx,
+        xFrac: pool.cx + rand(-pool.rx * 0.75, pool.rx * 0.75),
+        yFrac: pool.cy + rand(-pool.ry * 0.65, pool.ry * 0.65),
+        driftX: rand(-0.006, -0.002),
+        phase: rand(0, Math.PI * 2),
+        freq: rand(2.0, 4.2),
+        size: rand(2.4, 5.2),
+      };
+    });
 
     const smokePuffs: SmokePuff[] = [
       ...Array.from({ length: 8 }, (_, i) => ({
@@ -496,64 +538,97 @@ export const SectAmbientVFX: React.FC<SectAmbientVFXProps> = ({
         }
 
         // --------------------------------------------------------------------
-        // 3. WATERFALL & STREAM (bottom-right: foam streaks, mist, water glints)
+        // 3. 3-TIER WATERFALL & TURQUOISE LAKES (cascades, mist, ripples, glints)
         // --------------------------------------------------------------------
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
         for (const f of foamStreaks) {
+          const fall = wf.falls[f.tierIdx];
           f.yFrac += f.speed * dt;
-          if (f.yFrac > wf.yMax) {
-            f.yFrac = wf.yMin;
-            f.xFrac = rand(wf.xMin + 0.01, wf.xMax - 0.01);
+          if (f.yFrac > fall.yMax) {
+            f.yFrac = fall.yMin;
+            f.xFrac = rand(fall.xMin + 0.003, fall.xMax - 0.003);
           }
           const x = f.xFrac * cw;
           const y0 = f.yFrac * ch;
-          const y1 = Math.min(wf.yMax * ch, y0 + f.lenFrac * ch);
+          const y1 = Math.min(fall.yMax * ch, y0 + f.lenFrac * ch);
+          if (y1 <= y0 + 1) continue;
           const grad = ctx.createLinearGradient(x, y0, x, y1);
-          grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
-          grad.addColorStop(0.5, `rgba(242, 252, 255, ${f.alpha})`);
-          grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          grad.addColorStop(0, 'rgba(225, 250, 255, 0)');
+          grad.addColorStop(0.45, `rgba(235, 253, 255, ${f.alpha})`);
+          grad.addColorStop(1, 'rgba(225, 250, 255, 0)');
           ctx.strokeStyle = grad;
           ctx.lineWidth = f.width * unitScale;
           ctx.lineCap = 'round';
           ctx.beginPath();
           ctx.moveTo(x, y0);
-          ctx.lineTo(x + 1.5 * unitScale, y1);
+          ctx.lineTo(x - 1.2 * unitScale, y1);
           ctx.stroke();
         }
+        ctx.restore();
 
+        // Plunge-pool white splash mist at the base of all 3 falls
         for (const m of mistPuffs) {
+          const fall = wf.falls[m.tierIdx];
           m.age += dt;
           if (m.age >= m.life) {
             m.age = 0;
-            m.xFrac = rand(wf.mistX - 0.048, wf.mistX + 0.045);
-            m.yFrac = rand(wf.mistY - 0.015, wf.mistY + 0.04);
+            m.xFrac = rand(fall.mistX - 0.022, fall.mistX + 0.022);
+            m.yFrac = rand(fall.mistY - 0.01, fall.mistY + 0.015);
           }
           const p = m.age / m.life;
           const alpha = Math.sin(p * Math.PI) * m.maxAlpha;
           const mx = (m.xFrac + m.vx * m.age) * cw;
           const my = (m.yFrac + m.vy * m.age) * ch;
-          const rad = m.rFrac * cw * (0.7 + p * 0.85);
+          const rad = m.rFrac * cw * (0.65 + p * 0.9);
           const grad = ctx.createRadialGradient(mx, my, 0, mx, my, rad);
-          grad.addColorStop(0, `rgba(246, 252, 255, ${alpha})`);
-          grad.addColorStop(0.6, `rgba(230, 246, 252, ${alpha * 0.45})`);
-          grad.addColorStop(1, 'rgba(230, 246, 252, 0)');
+          grad.addColorStop(0, `rgba(248, 253, 255, ${alpha})`);
+          grad.addColorStop(0.55, `rgba(225, 248, 255, ${alpha * 0.45})`);
+          grad.addColorStop(1, 'rgba(225, 248, 255, 0)');
           ctx.fillStyle = grad;
           ctx.beginPath();
           ctx.arc(mx, my, rad, 0, Math.PI * 2);
           ctx.fill();
         }
 
+        // Expanding concentric isometric ripples & flowing glints on all 3 turquoise lakes
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
+        for (const rp of lakeRipples) {
+          const pool = wf.pools[rp.poolIdx];
+          rp.age += dt;
+          if (rp.age >= rp.life) {
+            rp.age = 0;
+            rp.cxFrac = pool.cx + rand(-pool.rx * 0.35, pool.rx * 0.35);
+            rp.cyFrac = pool.cy + rand(-pool.ry * 0.25, pool.ry * 0.25);
+          }
+          const p = rp.age / rp.life;
+          const alpha = Math.sin(p * Math.PI) * 0.38;
+          const rx = Math.max(3, rp.maxRxFrac * cw * (0.2 + p * 0.85));
+          const ry = rx * 0.44;
+          ctx.strokeStyle = `rgba(225, 252, 255, ${alpha})`;
+          ctx.lineWidth = Math.max(1, 1.6 * unitScale * (1 - p * 0.45));
+          ctx.beginPath();
+          ctx.ellipse(rp.cxFrac * cw, rp.cyFrac * ch, rx, ry, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
         for (const g of waterGlints) {
+          const pool = wf.pools[g.poolIdx];
+          g.xFrac += g.driftX * dt;
+          if (g.xFrac < pool.cx - pool.rx * 0.85) {
+            g.xFrac = pool.cx + pool.rx * 0.82;
+            g.yFrac = pool.cy + rand(-pool.ry * 0.6, pool.ry * 0.6);
+          }
           const pulse = Math.max(0, Math.sin(t * g.freq + g.phase));
-          if (pulse < 0.25) continue;
-          const a = Math.pow(pulse, 3) * 0.72;
+          if (pulse < 0.2) continue;
+          const a = Math.pow(pulse, 2.2) * 0.76;
           const gx = g.xFrac * cw;
           const gy = g.yFrac * ch;
-          const sz = g.size * unitScale * (0.7 + pulse * 0.5);
-          ctx.fillStyle = `rgba(235, 252, 255, ${a})`;
+          const sz = g.size * unitScale * (0.75 + pulse * 0.55);
+          ctx.fillStyle = `rgba(235, 253, 255, ${a})`;
           ctx.beginPath();
-          ctx.ellipse(gx, gy, sz * 1.6, sz * 0.45, 0, 0, Math.PI * 2);
+          ctx.ellipse(gx, gy, sz * 1.9, sz * 0.42, -0.12, 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.restore();
