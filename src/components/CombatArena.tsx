@@ -27,7 +27,6 @@ import { sfx } from '../utils/sound';
 import {
   DisciplePortrait,
   ElementSeal,
-  EnemyUnitSprite,
   EquipmentSlotIcon,
   FiveElementDiagram,
   GemSprite,
@@ -36,49 +35,25 @@ import {
   SkillIcon,
   gemTierToRarity,
 } from './ElementIcons';
-import { FastForward, Play, Pause, Shield, Swords, Zap, Trophy, RotateCcw } from 'lucide-react';
-
-interface CombatUnit {
-  id: string;
-  name: string;
-  isAlly: boolean;
-  element: ElementType;
-  glyph: string;
-  realmLabel: string;
-  realmIndex?: number;
-  spiritRoot?: import('../types/game').SpiritRootGrade;
-  maxHp: number;
-  hp: number;
-  shield: number;
-  mp: number;
-  maxMp: number;
-  atk: number;
-  def: number;
-  spd: number;
-  crit: number;
-  critDmg: number;
-  elemBonus: number;
-  isBoss?: boolean;
-  skills: SkillDef[];
-}
-
-interface FloatingText {
-  id: number;
-  unitId: string;
-  text: string;
-  subText?: string;
-  color: string;
-}
-
-interface ActiveVfx {
-  id: number;
-  casterId: string;
-  skillId: string;
-  element: ElementType;
-  skillName: string;
-  comboChain: number;
-  isCombo: boolean;
-}
+import {
+  BattleStage,
+  StageActionAnim,
+  StageCombatUnit,
+  StageFloatingText,
+  StageImpactVfx,
+  getUnitHomeCoord,
+} from './BattleStage';
+import {
+  ChevronDown,
+  ChevronUp,
+  FastForward,
+  Play,
+  Pause,
+  RotateCcw,
+  Swords,
+  Trophy,
+  Zap,
+} from 'lucide-react';
 
 export interface BattleVictoryRewards {
   linhThach: number;
@@ -100,10 +75,12 @@ interface CombatArenaProps {
   onClose: () => void;
 }
 
+const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
 export function CombatArena({ state, context, onFinish, onClose }: CombatArenaProps) {
-  const initialUnits = useMemo<CombatUnit[]>(() => {
+  const initialUnits = useMemo<StageCombatUnit[]>(() => {
     const tangKinhLvl = state.buildings.tang_kinh_cac.level;
-    const allies: CombatUnit[] = state.disciples
+    const allies: StageCombatUnit[] = state.disciples
       .filter((d) => d.inFormation)
       .sort((a, b) => a.formationOrder - b.formationOrder)
       .slice(0, 5)
@@ -133,7 +110,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         };
       });
 
-    const enemies: CombatUnit[] = context.enemies.map((e) => ({
+    const enemies: StageCombatUnit[] = context.enemies.map((e) => ({
       id: e.id,
       name: e.name,
       isAlly: false,
@@ -158,7 +135,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     return [...allies, ...enemies];
   }, [state, context]);
 
-  const [units, setUnits] = useState<CombatUnit[]>(initialUnits);
+  const [units, setUnits] = useState<StageCombatUnit[]>(initialUnits);
   const [round, setRound] = useState(1);
   const [turnQueue, setTurnQueue] = useState<string[]>(() =>
     [...initialUnits].sort((a, b) => b.spd - a.spd).map((u) => u.id),
@@ -169,12 +146,17 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
   const [comboChain, setComboChain] = useState(0);
   const [autoBattle, setAutoBattle] = useState(false);
   const [fastMode, setFastMode] = useState(false);
-  const [busy, setBusy] = useState(false);
+
+  // CombatSequencer animation state
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [actionAnim, setActionAnim] = useState<StageActionAnim | null>(null);
   const [hitUnitIds, setHitUnitIds] = useState<string[]>([]);
-  const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
-  const [activeVfx, setActiveVfx] = useState<ActiveVfx | null>(null);
+  const [impactVfx, setImpactVfx] = useState<StageImpactVfx | null>(null);
+  const [screenShake, setScreenShake] = useState(false);
+  const [floatingTexts, setFloatingTexts] = useState<StageFloatingText[]>([]);
+  const [showLog, setShowLog] = useState(true);
   const [combatLog, setCombatLog] = useState<string[]>([
-    `Khai chiến: ${context.title}! Hãy tận dụng Tương Sinh Ngũ Hành để tạo Combo Liên Hoàn.`,
+    `Khai chiến: ${context.title}! Tận dụng Tương Sinh Ngũ Hành để tạo Combo Liên Hoàn.`,
   ]);
   const [battleOutcome, setBattleOutcome] = useState<{
     victory: boolean;
@@ -183,13 +165,23 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
 
   const unitsRef = useRef(units);
   unitsRef.current = units;
+  const fastModeRef = useRef(fastMode);
+  fastModeRef.current = fastMode;
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const activeUnitId = turnQueue[turnIndex];
   const activeUnit = units.find((u) => u.id === activeUnitId && u.hp > 0);
   const allies = units.filter((u) => u.isAlly);
   const enemies = units.filter((u) => !u.isAlly);
   const aliveEnemies = enemies.filter((e) => e.hp > 0);
-  const aliveAllies = allies.filter((a) => a.hp > 0);
+  const singleBoss = enemies.length === 1 && enemies[0].isBoss ? enemies[0] : null;
 
   // Ensure selected target is always an alive enemy
   useEffect(() => {
@@ -198,10 +190,11 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     }
   }, [aliveEnemies, selectedTargetId]);
 
-  const pushFloat = (unitId: string, text: string, color: string, subText?: string) => {
+  const pushFloat = (unitId: string, text: string, color: string, subText?: string, isCrit?: boolean) => {
     const id = Date.now() + Math.random();
-    setFloatingTexts((prev) => [...prev.slice(-8), { id, unitId, text, color, subText }]);
-    setTimeout(() => {
+    setFloatingTexts((prev) => [...prev.slice(-10), { id, unitId, text, color, subText, isCrit }]);
+    window.setTimeout(() => {
+      if (!mountedRef.current) return;
       setFloatingTexts((prev) => prev.filter((f) => f.id !== id));
     }, 950);
   };
@@ -265,7 +258,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     };
   };
 
-  const advanceTurn = (nextUnits: CombatUnit[]) => {
+  const advanceTurn = (nextUnits: StageCombatUnit[]) => {
     const aliveE = nextUnits.filter((u) => !u.isAlly && u.hp > 0);
     const aliveA = nextUnits.filter((u) => u.isAlly && u.hp > 0);
 
@@ -273,16 +266,15 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       sfx.victory();
       const rewards = buildRewards();
       setBattleOutcome({ victory: true, rewards });
-      setBusy(false);
+      setIsAnimating(false);
       return;
     }
     if (aliveA.length === 0) {
       setBattleOutcome({ victory: false });
-      setBusy(false);
+      setIsAnimating(false);
       return;
     }
 
-    // Find next alive unit in queue
     let nextIdx = turnIndex + 1;
     let nextQueue = turnQueue;
     let nextRound = round;
@@ -307,14 +299,21 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       setTurnQueue(nextQueue);
     }
     setTurnIndex(found);
-    setBusy(false);
+    setIsAnimating(false);
   };
 
-  const executeSkill = (caster: CombatUnit, skill: SkillDef, targetId?: string) => {
-    if (busy || battleOutcome) return;
-    setBusy(true);
+  /**
+   * Async CombatSequencer:
+   * 1) Lock input + highlight caster & skill callout
+   * 2) Dash to target (single-target) or leap/glide center (AoE / Heal / Shield)
+   * 3) Trigger VFX impact, hit flash, knockback, screen shake, floating numbers & smooth HP/MP update
+   * 4) Return to home slot -> wait 200ms -> hand off to next turn
+   */
+  const executeSkill = async (caster: StageCombatUnit, skill: SkillDef, targetId?: string) => {
+    if (isAnimating || battleOutcome) return;
+    setIsAnimating(true);
 
-    const delayMs = fastMode ? 320 : 620;
+    const speedMult = fastModeRef.current ? 0.5 : 1.0;
     const nextUnits = unitsRef.current.map((u) => ({ ...u }));
     const acting = nextUnits.find((u) => u.id === caster.id);
     if (!acting || acting.hp <= 0) {
@@ -322,55 +321,44 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       return;
     }
 
-    // MP consumption / regen
+    // 1. Pre-compute combat math (identical to original battle engine)
     if (skill.mpCost > 0) {
       acting.mp = Math.max(0, acting.mp - skill.mpCost);
     } else {
       acting.mp = Math.min(acting.maxMp, acting.mp + 25);
     }
 
-    // Five-Element Tương Sinh Combo Logic (Allies track global combo chain)
     let isComboTriggered = false;
     let newComboChain = comboChain;
     if (acting.isAlly) {
       if (doesGenerateElement(comboElement, skill.element)) {
         isComboTriggered = true;
         newComboChain = Math.min(5, comboChain + 1);
-        setComboChain(newComboChain);
-        setComboElement(skill.element);
-        sfx.combo(newComboChain);
       } else {
         newComboChain = 1;
-        setComboChain(1);
-        setComboElement(skill.element);
-        sfx.attack();
       }
-    } else {
-      sfx.attack();
     }
 
     const tangKinhBonus = acting.isAlly ? 1 + (state.buildings.tang_kinh_cac.level - 1) * 0.06 : 1;
     const comboMult = isComboTriggered ? 1 + 0.25 * newComboChain : 1;
 
-    setActiveVfx({
-      id: Date.now(),
-      casterId: acting.id,
-      skillId: skill.id,
-      element: skill.element,
-      skillName: skill.name,
-      comboChain: newComboChain,
-      isCombo: isComboTriggered,
-    });
-
     const hitIds: string[] = [];
     const logs: string[] = [];
+    const pendingFloats: Array<{ unitId: string; text: string; color: string; subText?: string; isCrit?: boolean }> = [];
+    let anyCrit = false;
+    let primaryTargetUnit: StageCombatUnit | null = null;
 
     if (skill.target === 'ally_heal') {
       const team = nextUnits.filter((u) => u.isAlly === acting.isAlly && u.hp > 0);
       team.forEach((ally) => {
         const healAmt = Math.round((acting.atk * skill.multiplier * 1.45 + ally.maxHp * 0.14) * comboMult);
         ally.hp = Math.min(ally.maxHp, ally.hp + healAmt);
-        pushFloat(ally.id, `+${formatNum(healAmt)}`, '#16A34A', isComboTriggered ? `LIÊN HOÀN x${newComboChain}` : 'HỒI XUÂN');
+        pendingFloats.push({
+          unitId: ally.id,
+          text: `+${formatNum(healAmt)}`,
+          color: '#4ADE80',
+          subText: isComboTriggered ? `LIÊN HOÀN x${newComboChain}` : 'HỒI XUÂN',
+        });
       });
       logs.push(
         `${acting.name} thi triển [${skill.name}]${isComboTriggered ? ` (NGŨ HÀNH LIÊN HOÀN x${newComboChain}!)` : ''}, hồi phục toàn đội.`,
@@ -380,7 +368,12 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       team.forEach((ally) => {
         const shieldAmt = Math.round((acting.def * 2.8 + ally.maxHp * 0.2) * comboMult);
         ally.shield += shieldAmt;
-        pushFloat(ally.id, `+${formatNum(shieldAmt)} Giáp`, '#B45309', isComboTriggered ? `LIÊN HOÀN x${newComboChain}` : 'HỘ THUẪN');
+        pendingFloats.push({
+          unitId: ally.id,
+          text: `+${formatNum(shieldAmt)} Giáp`,
+          color: '#FBBF24',
+          subText: isComboTriggered ? `LIÊN HOÀN x${newComboChain}` : 'HỘ THUẪN',
+        });
       });
       logs.push(
         `${acting.name} thi triển [${skill.name}]${isComboTriggered ? ` (NGŨ HÀNH LIÊN HOÀN x${newComboChain}!)` : ''}, dựng Hộ Thuẫn toàn đội.`,
@@ -392,12 +385,16 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
           ? oppPool
           : [oppPool.find((u) => u.id === targetId) || oppPool[0]].filter(Boolean);
 
+      primaryTargetUnit = targets[0] || null;
+
       targets.forEach((tgt) => {
         hitIds.push(tgt.id);
         const rel = getElementRelation(skill.element, tgt.element);
         const elemRelMult = rel === 'counter' ? 1.35 : rel === 'resisted' ? 0.8 : 1.0;
-        const critChance = acting.crit + (rel === 'counter' ? 15 : 0) + (isComboTriggered && skill.element === 'Kim' ? 25 : 0);
+        const critChance =
+          acting.crit + (rel === 'counter' ? 15 : 0) + (isComboTriggered && skill.element === 'Kim' ? 25 : 0);
         const isCrit = Math.random() * 100 < critChance;
+        if (isCrit) anyCrit = true;
         const critMult = isCrit ? acting.critDmg / 100 : 1.0;
 
         const armorPen = isComboTriggered && skill.element === 'Kim' ? 0.72 : 1.0;
@@ -416,66 +413,189 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         const tags: string[] = [];
         if (isComboTriggered) tags.push(`LIÊN HOÀN x${newComboChain}`);
         if (rel === 'counter') tags.push('KHẮC CHẾ!');
-        if (isCrit) tags.push('BẠO KÍCH');
+        if (isCrit) tags.push('BẠO KÍCH!');
+        if (armorPen < 1) tags.push('XUYÊN GIÁP');
 
-        pushFloat(
-          tgt.id,
-          `-${formatNum(finalDmg)}`,
-          isCrit ? '#DC2626' : rel === 'counter' ? '#D97706' : '#F8FAFC',
-          tags.join(' · ') || undefined,
-        );
+        pendingFloats.push({
+          unitId: tgt.id,
+          text: `-${formatNum(finalDmg)}`,
+          color: isCrit ? '#FB7185' : rel === 'counter' ? '#FBBF24' : '#F8FAFC',
+          subText: tags.join(' · ') || undefined,
+          isCrit,
+        });
       });
 
-      // Moc basic self-heal / Tho combo shield bonus
       if (skill.id === 'moc_basic') {
         const selfHeal = Math.round(acting.maxHp * (isComboTriggered ? 0.14 : 0.08));
         acting.hp = Math.min(acting.maxHp, acting.hp + selfHeal);
-        pushFloat(acting.id, `+${formatNum(selfHeal)}`, '#16A34A');
+        pendingFloats.push({ unitId: acting.id, text: `+${formatNum(selfHeal)}`, color: '#4ADE80' });
       }
       if (skill.id === 'tho_basic' && isComboTriggered) {
         const sh = Math.round(acting.maxHp * 0.18);
         acting.shield += sh;
-        pushFloat(acting.id, `+${formatNum(sh)} Giáp`, '#B45309');
+        pendingFloats.push({ unitId: acting.id, text: `+${formatNum(sh)} Giáp`, color: '#FBBF24' });
       }
 
       logs.push(
-        `${acting.name} [${ELEMENT_META[skill.element].name}] dùng ${skill.name}${isComboTriggered ? ` — KÍCH HOẠT TƯƠNG SINH LIÊN HOÀN x${newComboChain}!` : ''}`,
+        `${acting.name} [${ELEMENT_META[skill.element].name}] dùng ${skill.name}${
+          isComboTriggered ? ` — KÍCH HOẠT TƯƠNG SINH LIÊN HOÀN x${newComboChain}!` : ''
+        }`,
       );
     }
 
-    setHitUnitIds(hitIds);
-    setUnits(nextUnits);
-    setCombatLog((prev) => [...logs, ...prev].slice(0, 12));
+    // -----------------------------------------------------------------------
+    // PHASE 1: Skill Callout Spotlight
+    // -----------------------------------------------------------------------
+    setActionAnim({
+      casterId: acting.id,
+      phase: 'callout',
+      skillName: skill.name,
+      skillId: skill.id,
+      element: skill.element,
+      isCombo: isComboTriggered,
+      comboChain: newComboChain,
+      dashTo: null,
+      leapY: 0,
+    });
+    await wait(Math.round(160 * speedMult));
+    if (!mountedRef.current) return;
 
-    setTimeout(() => {
-      setHitUnitIds([]);
-      setActiveVfx(null);
-      advanceTurn(nextUnits);
-    }, delayMs);
+    // -----------------------------------------------------------------------
+    // PHASE 2: Approach / Cast Movement
+    // -----------------------------------------------------------------------
+    let dashTo: { x: number; y: number } | null = null;
+    let leapY = 0;
+
+    if (skill.target === 'single' && primaryTargetUnit) {
+      const oppList = unitsRef.current.filter((u) => u.isAlly !== acting.isAlly);
+      const tgtIdx = oppList.findIndex((u) => u.id === primaryTargetUnit!.id);
+      const tgtCoord = getUnitHomeCoord(primaryTargetUnit, Math.max(0, tgtIdx), oppList.length);
+      const stopOffset = primaryTargetUnit.isBoss && oppList.length === 1 ? 15 : 10;
+      dashTo = {
+        x: acting.isAlly ? Math.max(15, tgtCoord.x - stopOffset) : Math.min(85, tgtCoord.x + stopOffset),
+        y: tgtCoord.y,
+      };
+    } else if (skill.target === 'all') {
+      // AoE ultimate: glide slightly toward center-stage and levitate!
+      dashTo = { x: acting.isAlly ? 43 : 57, y: 55 };
+      leapY = -18;
+    } else {
+      // Ally heal / shield: levitate gracefully in place
+      leapY = -14;
+    }
+
+    setActionAnim({
+      casterId: acting.id,
+      phase: 'move',
+      skillName: skill.name,
+      skillId: skill.id,
+      element: skill.element,
+      isCombo: isComboTriggered,
+      comboChain: newComboChain,
+      dashTo,
+      leapY,
+    });
+    await wait(Math.round(230 * speedMult));
+    if (!mountedRef.current) return;
+
+    // -----------------------------------------------------------------------
+    // PHASE 3: Impact VFX + Sound + Hit Flash + Knockback + Smooth HP/MP Update
+    // -----------------------------------------------------------------------
+    if (acting.isAlly) {
+      setComboChain(newComboChain);
+      setComboElement(skill.element);
+      if (isComboTriggered) sfx.combo(newComboChain);
+      else sfx.attack();
+    } else {
+      sfx.attack();
+    }
+
+    const vfxTargets =
+      hitIds.length > 0
+        ? hitIds
+        : nextUnits.filter((u) => u.isAlly === acting.isAlly && u.hp > 0).map((u) => u.id);
+
+    setActionAnim({
+      casterId: acting.id,
+      phase: 'impact',
+      skillName: skill.name,
+      skillId: skill.id,
+      element: skill.element,
+      isCombo: isComboTriggered,
+      comboChain: newComboChain,
+      dashTo,
+      leapY,
+    });
+    setImpactVfx({
+      id: Date.now(),
+      targetIds: vfxTargets,
+      element: skill.element,
+      vfxType: skill.vfxType,
+      isAoE: skill.target !== 'single',
+    });
+    setHitUnitIds(hitIds);
+    if (anyCrit || skill.mpCost > 0 || isComboTriggered) {
+      setScreenShake(true);
+    }
+
+    // Commit HP/MP/Shield & Floating Combat Numbers right at the moment of impact!
+    setUnits(nextUnits);
+    setCombatLog((prev) => [...logs, ...prev].slice(0, 16));
+    pendingFloats.forEach((f) => pushFloat(f.unitId, f.text, f.color, f.subText, f.isCrit));
+
+    await wait(Math.round(350 * speedMult));
+    if (!mountedRef.current) return;
+
+    // -----------------------------------------------------------------------
+    // PHASE 4: Return to Formation Slot -> Pause 200ms -> Advance Turn
+    // -----------------------------------------------------------------------
+    setHitUnitIds([]);
+    setImpactVfx(null);
+    setScreenShake(false);
+    setActionAnim({
+      casterId: acting.id,
+      phase: 'return',
+      skillName: skill.name,
+      skillId: skill.id,
+      element: skill.element,
+      isCombo: isComboTriggered,
+      comboChain: newComboChain,
+      dashTo: null,
+      leapY: 0,
+    });
+
+    await wait(Math.round(200 * speedMult));
+    if (!mountedRef.current) return;
+
+    setActionAnim(null);
+    await wait(Math.round(200 * speedMult));
+    if (!mountedRef.current) return;
+
+    advanceTurn(nextUnits);
   };
 
   // Automatic turn execution for Enemies OR when Auto-Battle is active for Allies
   useEffect(() => {
-    if (busy || battleOutcome || !activeUnit) return;
+    if (isAnimating || battleOutcome || !activeUnit) return;
 
     if (!activeUnit.isAlly || autoBattle) {
-      const thinkDelay = fastMode ? 240 : 480;
-      const timer = setTimeout(() => {
+      const thinkDelay = fastMode ? 180 : 380;
+      const timer = window.setTimeout(() => {
         const ult = activeUnit.skills[1];
         const basic = activeUnit.skills[0];
 
-        // Choose smart skill
         let chosenSkill = basic;
         if (ult && activeUnit.mp >= ult.mpCost) {
           if (ult.target === 'ally_heal') {
-            const injured = unitsRef.current.some((u) => u.isAlly === activeUnit.isAlly && u.hp > 0 && u.hp < u.maxHp * 0.72);
+            const injured = unitsRef.current.some(
+              (u) => u.isAlly === activeUnit.isAlly && u.hp > 0 && u.hp < u.maxHp * 0.72,
+            );
             chosenSkill = injured ? ult : basic;
           } else {
             chosenSkill = ult;
           }
         }
 
-        // Choose smart target (prefer element counter or lowest HP)
         const opps = unitsRef.current.filter((u) => u.isAlly !== activeUnit.isAlly && u.hp > 0);
         const preferred =
           opps.find((o) => getElementRelation(chosenSkill.element, o.element) === 'counter') ||
@@ -483,66 +603,109 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
 
         executeSkill(activeUnit, chosenSkill, preferred?.id);
       }, thinkDelay);
-      return () => clearTimeout(timer);
+      return () => window.clearTimeout(timer);
     }
-  }, [activeUnit, autoBattle, busy, battleOutcome, fastMode, turnIndex, round]);
+  }, [activeUnit, autoBattle, isAnimating, battleOutcome, fastMode, turnIndex, round]);
 
   const nextComboElement = comboElement ? ELEMENT_META[comboElement].generates : null;
-  const isPlayerTurn = Boolean(activeUnit?.isAlly && !autoBattle && !busy && !battleOutcome);
+  const isPlayerTurn = Boolean(activeUnit?.isAlly && !autoBattle && !isAnimating && !battleOutcome);
+  const deckAlly = activeUnit?.isAlly ? activeUnit : allies.find((a) => a.hp > 0) || allies[0];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-[#0E1E1E] via-[#172E2C] to-[#0E1A1A] text-[#F5ECD8]">
-      {/* Top Combat Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-[#112221]/95 border-b border-[#C9A45C]/50 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="px-2.5 py-1 rounded bg-[#233E3B] border border-[#C9A45C]/60 text-xs font-mono font-bold text-[#F3D388] shrink-0">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#0D1A19] text-[#F5ECD8] overflow-hidden">
+      {/* 1. TOP HUD BAR */}
+      <header className="relative z-20 flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[#0F201F]/95 border-b border-[#C9A45C]/55 shadow-lg shrink-0">
+        {/* Left: Turn Counter + Battle Name */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="px-2.5 py-1 rounded-lg bg-[#233E3B] border border-[#C9A45C]/70 text-xs font-mono font-bold text-[#F3D388] shrink-0">
             Hiệp {round}
           </div>
           <div className="min-w-0">
             <h2
-              className="text-lg sm:text-xl font-bold text-[#F7E1A3] truncate"
+              className="text-sm sm:text-base font-bold text-[#F7E1A3] truncate leading-tight"
               style={{ fontFamily: 'var(--font-display)' }}
             >
               {context.title}
             </h2>
-            <p className="text-[11px] text-[#B8CEC5] truncate">{context.subtitle}</p>
+            <div className="flex items-center gap-1.5 text-[10px] text-[#B8CEC5]">
+              <Zap className="w-3 h-3 text-[#F3D388] shrink-0" />
+              {comboElement ? (
+                <span className="flex items-center gap-1 truncate">
+                  <span>Liên Hoàn</span>
+                  <strong className="text-[#FDE047] font-mono">x{comboChain}</strong>
+                  {nextComboElement && (
+                    <span className="text-[#93C5FD]">→ tiếp: {ELEMENT_META[nextComboElement].name}</span>
+                  )}
+                </span>
+              ) : (
+                <span className="truncate">Xuất chiêu Tương Sinh để kích hoạt Liên Hoàn</span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Five-Element Tương Sinh Combo Chain Tracker */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1A312F] border border-[#D4B06A]/60">
-          <Zap className="w-4 h-4 text-[#F3D388] shrink-0" />
-          <span className="text-xs font-semibold text-[#EAD8B0] whitespace-nowrap">Ngũ Hành Liên Hoàn:</span>
-          {comboElement ? (
-            <div className="flex items-center gap-1.5 text-xs">
-              <ElementSeal element={comboElement} size="xs" showName />
-              <span className="text-[#F3D388] font-mono font-bold">x{comboChain}</span>
-              {nextComboElement && (
-                <>
-                  <span className="text-[#9AB5AA]">→ tiếp:</span>
-                  <ElementSeal element={nextComboElement} size="xs" showName />
-                </>
-              )}
+        {/* Center: Giant Boss HP Bar (5v1 Boss Fight) OR Compact Turn Order */}
+        {singleBoss ? (
+          <div className="order-3 sm:order-2 w-full sm:w-auto sm:min-w-[300px] lg:min-w-[380px] px-3 py-1 rounded-xl bg-[#271114]/90 border border-[#EF4444]/60 shadow-inner">
+            <div className="flex items-center justify-between gap-2 text-xs mb-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <ElementSeal element={singleBoss.element} size="xs" />
+                <span className="font-bold text-[#FEE2E2] truncate">{singleBoss.name}</span>
+                <span className="text-[10px] text-[#FCA5A5] hidden md:inline">({ELEMENT_META[singleBoss.element].name})</span>
+              </div>
+              <span className="font-mono text-[11px] font-bold text-[#FECACA] shrink-0">
+                {formatNum(singleBoss.hp)} / {formatNum(singleBoss.maxHp)} (
+                {Math.ceil((singleBoss.hp / Math.max(1, singleBoss.maxHp)) * 100)}%)
+              </span>
             </div>
-          ) : (
-            <span className="text-xs text-[#9AB5AA]">Xuất chiêu để khởi tạo chuỗi</span>
-          )}
-        </div>
+            <div className="h-2.5 rounded-full bg-[#120708] overflow-hidden border border-[#7F1D1D]">
+              <div
+                className="h-full bg-gradient-to-r from-[#991B1B] via-[#DC2626] to-[#F87171] transition-all duration-300"
+                style={{ width: `${Math.max(0, (singleBoss.hp / Math.max(1, singleBoss.maxHp)) * 100)}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="hidden lg:flex items-center gap-1.5 order-2 overflow-x-auto max-w-md">
+            <span className="text-[10px] text-[#9BB4AA] whitespace-nowrap">Lượt (SPD):</span>
+            {turnQueue.slice(0, 7).map((uid, idx) => {
+              const u = units.find((x) => x.id === uid);
+              if (!u || u.hp <= 0) return null;
+              const isCur = idx === turnIndex;
+              return (
+                <span
+                  key={`${uid}_${idx}`}
+                  className={`px-2 py-0.5 rounded text-[10px] border whitespace-nowrap ${
+                    isCur
+                      ? 'bg-[#D4A24C] text-[#1D150A] border-[#FFF1C4] font-bold'
+                      : u.isAlly
+                        ? 'bg-[#1C3833] text-[#DDF0E8] border-[#3F7066]'
+                        : 'bg-[#3B1E20] text-[#F7D7D4] border-[#824143]'
+                  }`}
+                >
+                  {u.name.split(' ').slice(-1)[0]}
+                </span>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Speed / Auto / Retreat controls */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Right: Auto / x1-x2 Speed / Retreat */}
+        <div className="order-2 sm:order-3 flex items-center gap-1.5 shrink-0">
           <button
+            type="button"
             onClick={() => setAutoBattle((v) => !v)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1 transition-colors cursor-pointer ${
               autoBattle
                 ? 'bg-[#D4A24C] text-[#1B140A] border-[#F8E2A6]'
                 : 'bg-[#1D3532] text-[#E9DEC4] border-[#C9A45C]/50 hover:bg-[#274642]'
             }`}
           >
             {autoBattle ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            {autoBattle ? 'Đang Tự Động' : 'Tự Động'}
+            <span>{autoBattle ? 'Auto' : 'Tự Động'}</span>
           </button>
           <button
+            type="button"
             onClick={() => setFastMode((v) => !v)}
             className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold border flex items-center gap-1 transition-colors cursor-pointer ${
               fastMode
@@ -551,371 +714,138 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
             }`}
           >
             <FastForward className="w-3.5 h-3.5" />
-            {fastMode ? '2x' : '1x'}
+            {fastMode ? 'x2' : 'x1'}
           </button>
           <button
+            type="button"
             onClick={onClose}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#4E1E1B] hover:bg-[#6E2722] border border-[#E07A6B]/50 text-[#FDE8E6] cursor-pointer whitespace-nowrap"
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#4E1E1B] hover:bg-[#6E2722] border border-[#E07A6B]/50 text-[#FDE8E6] cursor-pointer"
           >
-            Rút Lui
+            Thoát
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Turn Order Timeline Strip */}
-      <div className="flex items-center gap-2 px-4 py-1.5 bg-[#0D1A19]/80 border-b border-[#C9A45C]/25 overflow-x-auto shrink-0">
-        <span className="text-[11px] text-[#9BB4AA] font-medium whitespace-nowrap">Thứ tự lượt (SPD):</span>
-        {turnQueue.map((uid, idx) => {
-          const u = units.find((x) => x.id === uid);
-          if (!u || u.hp <= 0) return null;
-          const isCurrent = idx === turnIndex;
-          return (
-            <div
-              key={`${uid}_${idx}`}
-              className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] border whitespace-nowrap transition-transform ${
-                isCurrent
-                  ? 'bg-[#D4A24C] text-[#1D150A] border-[#FFF1C4] font-bold scale-105'
-                  : u.isAlly
-                    ? 'bg-[#1C3833] text-[#DDF0E8] border-[#3F7066]'
-                    : 'bg-[#3B1E20] text-[#F7D7D4] border-[#824143]'
-              }`}
-            >
-              <span>{u.name.split(' ').slice(-1)[0]}</span>
-              <span className="font-mono text-[10px] opacity-80">{u.spd}</span>
-            </div>
-          );
-        })}
-      </div>
+      {/* 2. CENTER 2.5D LIVE BATTLE STAGE (~70% screen) */}
+      <BattleStage
+        allies={allies}
+        enemies={enemies}
+        activeUnitId={activeUnit?.id}
+        activeUnitElement={activeUnit?.element}
+        activeUnitIsAlly={activeUnit?.isAlly}
+        selectedTargetId={selectedTargetId}
+        nextComboElement={nextComboElement}
+        actionAnim={actionAnim}
+        hitUnitIds={hitUnitIds}
+        impactVfx={impactVfx}
+        floatingTexts={floatingTexts}
+        screenShake={screenShake}
+        fastMode={fastMode}
+        onSelectTarget={(enemyId) => {
+          sfx.click();
+          setSelectedTargetId(enemyId);
+        }}
+      />
 
-      {/* Main Battle Stage */}
-      <div className="relative flex-1 overflow-y-auto flex flex-col justify-between p-4 sm:p-6 overflow-x-hidden">
-        {/* Clean Isometric Sect Backdrop at 20% Opacity */}
-        <img
-          src="./assets/aistudio/1_80f8120e.png"
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          className="pointer-events-none absolute inset-0 w-full h-full object-cover object-top scale-[1.07] origin-top opacity-20"
-        />
-
-        {/* Elemental Skill VFX Overlay */}
-        {activeVfx && (
-          <div
-            key={activeVfx.id}
-            className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center"
-          >
-            <div
-              className="animate-combo-burst flex flex-col items-center px-8 py-5 rounded-2xl border-2 shadow-2xl"
-              style={{
-                backgroundColor: 'rgba(14, 28, 27, 0.88)',
-                borderColor: ELEMENT_META[activeVfx.element].border,
-                boxShadow: `0 0 48px ${ELEMENT_META[activeVfx.element].color}88`,
-              }}
-            >
-              <SkillIcon skillId={activeVfx.skillId} name={activeVfx.skillName} className="w-16 h-16" />
-              <div
-                className="mt-2 text-2xl sm:text-3xl font-bold tracking-wide"
-                style={{
-                  color: '#FDF1C8',
-                  fontFamily: 'var(--font-display)',
-                }}
-              >
-                {activeVfx.skillName}
-              </div>
-              {activeVfx.isCombo && (
-                <div className="mt-1 text-sm font-bold tracking-wide text-[#FBBF24]">
-                  NGŨ HÀNH TƯƠNG SINH · LIÊN HOÀN x{activeVfx.comboChain}!
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Battle Grid: Left Allies vs Right Enemies */}
-        <div className="relative z-10 max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 my-auto">
-          {/* ALLIES FORMATION */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-[#C8DFD4] px-1">
-              <span>Đội Hình Tông Môn ({aliveAllies.length}/{allies.length})</span>
-              <span className="text-[#F2D384]">Phe Ta</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {allies.map((u, allyIdx) => {
-                const isTurn = activeUnit?.id === u.id;
-                const isHit = hitUnitIds.includes(u.id);
-                const dead = u.hp <= 0;
-                const hpPct = Math.max(0, (u.hp / u.maxHp) * 100);
-                const mpPct = Math.max(0, (u.mp / u.maxMp) * 100);
-                const isNextComboUnit = nextComboElement === u.element && !dead;
-                const isCenteredFifth = allies.length === 5 && allyIdx === 4;
-
-                return (
-                  <div
-                    key={u.id}
-                    className={`relative rounded-xl p-3 border transition-all ${
-                      isCenteredFifth ? 'sm:col-span-2 sm:max-w-[calc(50%-0.375rem)] sm:mx-auto sm:w-full' : ''
-                    } ${
-                      isHit ? 'animate-hit-shake' : ''
-                    } ${
-                      dead
-                        ? 'opacity-40 bg-[#131F1E] border-[#2C3F3D]'
-                        : isTurn
-                          ? 'bg-[#21413D] border-[#F5D687] shadow-[0_0_20px_rgba(245,214,135,0.28)]'
-                          : 'bg-[#162C2A]/90 border-[#3A5F5A]'
-                    }`}
-                  >
-                    {/* Floating combat numbers */}
-                    {floatingTexts
-                      .filter((f) => f.unitId === u.id)
-                      .map((f) => (
-                        <div
-                          key={f.id}
-                          className="pointer-events-none absolute left-1/2 -top-2 -translate-x-1/2 z-30 animate-damage-float text-center whitespace-nowrap"
-                        >
-                          <div className="text-lg font-mono font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]" style={{ color: f.color }}>
-                            {f.text}
-                          </div>
-                          {f.subText && (
-                            <div className="text-[10px] font-bold text-[#FDE047] drop-shadow">{f.subText}</div>
-                          )}
-                        </div>
-                      ))}
-
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <DisciplePortrait
-                          discipleId={u.id}
-                          name={u.name}
-                          glyph={u.glyph}
-                          element={u.element}
-                          realmIndex={u.realmIndex}
-                          spiritRoot={u.spiritRoot}
-                          borderColor={isTurn ? '#FDE047' : '#D4B06A'}
-                          size="md"
-                          fullBody
-                          animMode={activeVfx?.casterId === u.id ? 'attack' : 'idle'}
-                          className={
-                            activeVfx?.casterId === u.id
-                              ? 'translate-x-2 scale-115 transition-transform duration-150'
-                              : 'transition-transform duration-150'
-                          }
-                        />
-                        <div className="min-w-0">
-                          <div className="text-sm font-bold text-[#FBF2DC] truncate">{u.name}</div>
-                          <div className="text-[11px] text-[#AFC8BE] truncate">
-                            {u.realmLabel} · ATK {formatNum(u.atk)}
-                          </div>
-                        </div>
-                      </div>
-                      <ElementSeal element={u.element} size="sm" />
-                    </div>
-
-                    {/* HP & Shield Bar */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[11px] font-mono tabular-nums">
-                        <span className="text-[#BCE6CD]">
-                          HP {formatNum(u.hp)}/{formatNum(u.maxHp)}
-                        </span>
-                        {u.shield > 0 && (
-                          <span className="text-[#F5C96B] flex items-center gap-0.5">
-                            <Shield className="w-3 h-3" /> {formatNum(u.shield)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="h-2 rounded-full bg-[#0C1817] overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-[#1F8A5B] to-[#4ADE80] transition-all duration-200"
-                          style={{ width: `${hpPct}%` }}
-                        />
-                      </div>
-
-                      {/* MP Bar */}
-                      <div className="flex justify-between text-[10px] font-mono tabular-nums text-[#93C5FD]">
-                        <span>Linh Lực {u.mp}/{u.maxMp}</span>
-                        {isNextComboUnit && <span className="text-[#FDE047] font-bold">Sẵn sàng Liên Hoàn!</span>}
-                      </div>
-                      <div className="h-1.5 rounded-full bg-[#0C1817] overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-[#2563EB] to-[#60A5FA] transition-all duration-200"
-                          style={{ width: `${mpPct}%` }}
-                        />
-                      </div>
-                    </div>
+      {/* 3. COMPACT BOTTOM HUD (Skill Deck left + Collapsible Translucent Combat Log right) */}
+      <footer className="relative z-20 px-3 sm:px-4 py-2 bg-[#0D1D1C]/92 border-t border-[#C9A45C]/55 backdrop-blur-sm shrink-0">
+        <div className="max-w-[1220px] mx-auto flex flex-col lg:flex-row items-stretch lg:items-end justify-between gap-2.5">
+          {/* Bottom-Left: Active Ally Skill Command Deck */}
+          <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            {deckAlly && (
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-[#162C2A]/95 border border-[#C9A45C]/55 shrink-0">
+                <DisciplePortrait
+                  discipleId={deckAlly.id}
+                  name={deckAlly.name}
+                  glyph={deckAlly.glyph}
+                  element={deckAlly.element}
+                  realmIndex={deckAlly.realmIndex}
+                  spiritRoot={deckAlly.spiritRoot}
+                  size="sm"
+                  borderColor={activeUnit?.id === deckAlly.id ? '#FDE047' : '#C9A45C'}
+                />
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-[#FCE6A6] truncate max-w-[120px]">{deckAlly.name}</div>
+                  <div className="text-[10px] font-mono text-[#93C5FD]">
+                    Linh Lực: {deckAlly.mp}/{deckAlly.maxMp}
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ENEMIES / BOSS FORMATION */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-[#F5C6C2] px-1">
-              <span>Yêu Ma / Thủ Vệ ({aliveEnemies.length}/{enemies.length})</span>
-              <span className="text-[#F5A89F]">Nhấp để chọn mục tiêu</span>
-            </div>
-            <div className={`grid gap-3 ${enemies.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
-              {enemies.map((u) => {
-                const isTurn = activeUnit?.id === u.id;
-                const isSelected = selectedTargetId === u.id && u.hp > 0;
-                const isHit = hitUnitIds.includes(u.id);
-                const dead = u.hp <= 0;
-                const hpPct = Math.max(0, (u.hp / u.maxHp) * 100);
-                const relToActive = activeUnit?.isAlly ? getElementRelation(activeUnit.element, u.element) : 'neutral';
-
-                return (
-                  <button
-                    key={u.id}
-                    type="button"
-                    disabled={dead}
-                    onClick={() => !dead && setSelectedTargetId(u.id)}
-                    className={`relative text-left rounded-xl p-3.5 border transition-all cursor-pointer ${
-                      isHit ? 'animate-hit-shake' : ''
-                    } ${
-                      dead
-                        ? 'opacity-35 bg-[#1B1415] border-[#382728] cursor-default'
-                        : isSelected
-                          ? 'bg-[#3C1E20] border-[#F59E0B] shadow-[0_0_22px_rgba(245,158,11,0.3)]'
-                          : isTurn
-                            ? 'bg-[#361A1D] border-[#EF4444]'
-                            : 'bg-[#261719]/90 border-[#63363A] hover:border-[#C97C78]'
-                    }`}
-                  >
-                    {floatingTexts
-                      .filter((f) => f.unitId === u.id)
-                      .map((f) => (
-                        <div
-                          key={f.id}
-                          className="pointer-events-none absolute left-1/2 -top-2 -translate-x-1/2 z-30 animate-damage-float text-center whitespace-nowrap"
-                        >
-                          <div className="text-xl font-mono font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]" style={{ color: f.color }}>
-                            {f.text}
-                          </div>
-                          {f.subText && (
-                            <div className="text-[10px] font-bold text-[#FDE047] drop-shadow">{f.subText}</div>
-                          )}
-                        </div>
-                      ))}
-
-                    <div className="flex items-center justify-between gap-2 mb-2.5">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <EnemyUnitSprite
-                          id={u.id}
-                          name={u.name}
-                          element={u.element}
-                          glyph={u.glyph}
-                          isBoss={u.isBoss}
-                          className={u.isBoss ? 'w-20 h-20 sm:w-24 sm:h-24' : 'w-16 h-16'}
-                        />
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-bold text-[#FDECE8] truncate">{u.name}</div>
-                          <div className="text-[11px] text-[#E4B3AE] flex items-center gap-1.5 flex-wrap">
-                            <span>{u.realmLabel}</span>
-                            <span>·</span>
-                            <span className="font-mono">ATK {formatNum(u.atk)}</span>
-                            {!dead && relToActive === 'counter' && (
-                              <span className="text-[#FDE047] font-bold">· KHẮC CHẾ +35%</span>
-                            )}
-                            {!dead && relToActive === 'resisted' && (
-                              <span className="text-[#93C5FD] font-semibold">· Bị khắc -20%</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <ElementSeal element={u.element} size={u.isBoss ? 'lg' : 'sm'} />
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-mono tabular-nums">
-                        <span className="text-[#FECACA]">
-                          HP {formatNum(u.hp)} / {formatNum(u.maxHp)}
-                        </span>
-                        <span className="text-[#FCA5A5]">{Math.ceil(hpPct)}%</span>
-                      </div>
-                      <div className="h-2.5 rounded-full bg-[#140B0C] overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-[#B91C1C] to-[#F87171] transition-all duration-200"
-                          style={{ width: `${hpPct}%` }}
-                        />
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Command Deck & Live Log */}
-        <div className="relative z-10 max-w-6xl w-full mx-auto mt-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Skill Bar (2 cols) */}
-          <div className="lg:col-span-2 rounded-xl bg-[#132524]/95 border border-[#C9A45C]/60 p-3.5">
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="text-xs font-semibold text-[#F4D993]">
-                {activeUnit
-                  ? activeUnit.isAlly
-                    ? `Lượt của ${activeUnit.name} (Hệ ${ELEMENT_META[activeUnit.element].name})`
-                    : `Địch đang xuất chiêu: ${activeUnit.name}...`
-                  : 'Đang tính lượt...'}
+                  <div className="text-[10px] text-[#BCE6CD]">
+                    {activeUnit?.isAlly
+                      ? isAnimating
+                        ? 'Đang xuất chiêu...'
+                        : 'Chọn kỹ năng'
+                      : `Lượt địch: ${activeUnit?.name || '...'}`}
+                  </div>
+                </div>
               </div>
-              {activeUnit?.isAlly && nextComboElement === activeUnit.element && (
-                <span className="text-xs font-bold text-[#FDE047]">
-                  Hệ {ELEMENT_META[activeUnit.element].name} khớp Tương Sinh → Xuất chiêu để kích hoạt Liên Hoàn!
-                </span>
-              )}
-            </div>
+            )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(activeUnit?.isAlly ? activeUnit.skills : allies[0]?.skills || []).map((sk) => {
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(deckAlly?.skills || []).map((sk) => {
                 const canCast = isPlayerTurn && activeUnit && activeUnit.mp >= sk.mpCost;
-                const willCombo = activeUnit?.isAlly && doesGenerateElement(comboElement, sk.element);
+                const willCombo = Boolean(activeUnit?.isAlly && doesGenerateElement(comboElement, sk.element));
                 return (
                   <button
                     key={sk.id}
                     type="button"
                     disabled={!canCast}
                     onClick={() => activeUnit && executeSkill(activeUnit, sk, selectedTargetId)}
-                    className={`text-left p-3 rounded-lg border transition-all ${
+                    className={`text-left px-2.5 py-2 rounded-xl border transition-all ${
                       canCast
                         ? willCombo
-                          ? 'bg-gradient-to-r from-[#2D4532] to-[#3B391E] border-[#FDE047] hover:brightness-110 cursor-pointer'
+                          ? 'bg-gradient-to-r from-[#2D4532] to-[#3B391E] border-[#FDE047] hover:brightness-110 cursor-pointer shadow-[0_0_12px_rgba(253,224,71,0.28)]'
                           : 'bg-[#1D3936] border-[#C9A45C]/70 hover:border-[#F6DF9F] hover:bg-[#244642] cursor-pointer'
-                        : 'bg-[#12201F] border-[#2C4240] opacity-50 cursor-not-allowed'
+                        : 'bg-[#12201F]/90 border-[#2C4240] opacity-55 cursor-not-allowed'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <SkillIcon skillId={sk.id} name={sk.name} className="w-10 h-10" />
-                        <span className="font-bold text-sm text-[#FCF1D2] truncate">{sk.name}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <SkillIcon skillId={sk.id} name={sk.name} className="w-8 h-8 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs sm:text-sm text-[#FCF1D2] truncate leading-tight">
+                            {sk.name}
+                          </div>
+                          <div className="text-[10px] text-[#C8DDD4] truncate">{sk.description}</div>
+                        </div>
                       </div>
-                      <span className="text-[11px] font-mono font-bold text-[#93C5FD] whitespace-nowrap">
-                        {sk.mpCost > 0 ? `${sk.mpCost} Linh Lực` : '+25 Linh Lực'}
+                      <span className="text-[10px] font-mono font-bold text-[#93C5FD] whitespace-nowrap shrink-0">
+                        {sk.mpCost > 0 ? `-${sk.mpCost} MP` : '+25 MP'}
                       </span>
                     </div>
-                    <p className="text-[11px] text-[#C8DDD4] leading-snug">{sk.description}</p>
-                    <p className="text-[10px] text-[#F2D180] mt-1 leading-snug">{sk.comboBonusDesc}</p>
+                    <div className="text-[10px] text-[#F2D180] mt-0.5 truncate">{sk.comboBonusDesc}</div>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Combat Log (1 col) */}
-          <div className="rounded-xl bg-[#101F1E]/95 border border-[#C9A45C]/40 p-3 flex flex-col max-h-40">
-            <div className="text-xs font-semibold text-[#D6C59C] mb-1.5 flex items-center gap-1.5">
-              <Swords className="w-3.5 h-3.5 text-[#D4A24C]" /> Chiến Báo Trận Đấu
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-1 text-[11px] text-[#C7D8D0] pr-1">
-              {combatLog.map((line, i) => (
-                <div key={i} className={i === 0 ? 'text-[#FCE7A7] font-medium' : 'opacity-80'}>
-                  {line}
-                </div>
-              ))}
-            </div>
+          {/* Bottom-Right: Compact Collapsible Translucent Combat Log */}
+          <div className="lg:w-[300px] shrink-0 rounded-xl bg-[#0B1716]/85 border border-[#C9A45C]/40 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowLog((v) => !v)}
+              className="w-full px-2.5 py-1.5 flex items-center justify-between text-[11px] font-semibold text-[#E8D7AD] hover:bg-[#152827] cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5">
+                <Swords className="w-3.5 h-3.5 text-[#D4A24C]" />
+                Chiến Báo ({combatLog.length})
+              </span>
+              {showLog ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+            </button>
+            {showLog && (
+              <div className="px-2.5 pb-2 max-h-20 overflow-y-auto space-y-0.5 text-[10px] text-[#C7D8D0]">
+                {combatLog.map((line, i) => (
+                  <div key={i} className={i === 0 ? 'text-[#FCE7A7] font-medium' : 'opacity-80'}>
+                    {line}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      </footer>
 
-      {/* Victory / Defeat Result Modal */}
+      {/* Victory / Defeat Result Modal (Preserved 100%) */}
       {battleOutcome && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
           <div className="w-full max-w-lg scroll-parchment p-4 sm:p-5 text-[#24211C] space-y-4">
@@ -999,7 +929,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
 
                 {/* Dropped Equipment & Gems */}
                 <div className="space-y-1.5">
-                  <div className="text-xs font-semibold text-[#5C4E3A]">Chiến Lợi Phẩm Trang Bị & Linh Ngọc</div>
+                  <div className="text-xs font-semibold text-[#5C4E3A]">Chiến Lợi Phẩm Trang Bị &amp; Linh Ngọc</div>
                   <div className="space-y-1.5 max-h-44 overflow-y-auto">
                     {battleOutcome.rewards.droppedEquipment.map((eq) => {
                       const rm = RARITY_META[eq.rarity];
