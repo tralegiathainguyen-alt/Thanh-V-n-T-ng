@@ -1,5 +1,5 @@
 export type PaperDollGender = 'male' | 'female';
-export type PaperDollOutfitId = 'ngoai_mon' | 'kiem_khach' | 'dao_si' | 'luyen_dan';
+export type PaperDollOutfitId = 'ngoai_mon' | 'kiem_khach' | 'dao_si' | 'luyen_dan' | 'vo_dao';
 export type PaperDollWeaponId = 'none' | 'sword' | 'fan';
 export type PaperDollExpressionId =
   | 'vui_ve'
@@ -33,6 +33,9 @@ export const CHARACTER_PART_ASSETS: {
     idle: string;
     run1: string;
     run2: string;
+    backIdle: string;
+    backRun1: string;
+    backRun2: string;
     attack: string;
   };
   body: Record<PaperDollGender, { front?: string; back?: string }>;
@@ -47,16 +50,19 @@ export const CHARACTER_PART_ASSETS: {
     idle: `${COMMON_BASE}/body_idle.png`,
     run1: `${COMMON_BASE}/body_run_1.png`,
     run2: `${COMMON_BASE}/body_run_2.png`,
+    backIdle: `${COMMON_BASE}/body_back_idle.png`,
+    backRun1: `${COMMON_BASE}/body_back_run_1.png`,
+    backRun2: `${COMMON_BASE}/body_back_run_2.png`,
     attack: `${COMMON_BASE}/body_attack.png`,
   },
   body: {
     male: {
       front: `${MALE_BASE}/body_base.png`,
-      back: `${MALE_BASE}/body_base.png`,
+      back: `${COMMON_BASE}/body_back_idle.png`,
     },
     female: {
       front: `${COMMON_BASE}/body_idle.png`,
-      back: `${COMMON_BASE}/body_idle.png`,
+      back: `${COMMON_BASE}/body_back_idle.png`,
     },
   },
   outfits: {
@@ -181,6 +187,15 @@ export const OUTFIT_PRESETS: Array<{
     secondary: '#B8452E',
     trim: '#F5C451',
     cape: '#5C1B1B',
+  },
+  {
+    id: 'vo_dao',
+    name: 'Võ Đạo',
+    icon: '💨',
+    primary: '#F4F4F5',
+    secondary: '#94A3B8',
+    trim: '#E3B24C',
+    cape: '#CBD5E1',
   },
 ];
 

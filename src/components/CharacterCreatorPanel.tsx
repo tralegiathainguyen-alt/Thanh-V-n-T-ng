@@ -9,7 +9,7 @@ import {
 import { getVfxRingPreset } from '../data/vfxRings';
 import { getVfxAuraPreset } from '../data/vfxAuras';
 import { ChibiPaperDoll, PaperDollMotionState } from './ChibiPaperDoll';
-import { RotateCw, Sparkles, Swords, X, Zap } from 'lucide-react';
+import { RotateCw, Sparkles, Swords, Wind, X, Zap } from 'lucide-react';
 
 interface CharacterCreatorPanelProps {
   config: PaperDollConfig;
@@ -95,20 +95,31 @@ export const CharacterCreatorPanel: React.FC<CharacterCreatorPanelProps> = ({
             size={112}
           />
         </div>
-        <div className="mt-1.5 flex items-center gap-1.5">
+        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap justify-center">
+          <button
+            type="button"
+            onClick={() => setPreviewState((cur) => (cur === 'run' ? 'idle' : 'run'))}
+            className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+              previewState === 'run'
+                ? 'bg-[#1D7A5E] text-[#ECFEF7] ring-1 ring-[#6EE7B7]'
+                : 'bg-[#1E433E] hover:bg-[#275750] text-[#B7EDE0]'
+            }`}
+          >
+            <Wind className="w-3 h-3" /> {previewState === 'run' ? 'Dừng Chạy' : 'Test Chạy'}
+          </button>
           <button
             type="button"
             onClick={() => triggerTest('attack')}
-            className="px-2.5 py-1 rounded-lg bg-[#9A6914] hover:bg-[#B47D1A] text-[10px] font-bold text-[#FFF7DF] flex items-center gap-1 cursor-pointer"
+            className="px-2 py-1 rounded-lg bg-[#9A6914] hover:bg-[#B47D1A] text-[10px] font-bold text-[#FFF7DF] flex items-center gap-1 cursor-pointer"
           >
-            <Swords className="w-3 h-3" /> Test Xuất Chiêu
+            <Swords className="w-3 h-3" /> Xuất Chiêu
           </button>
           <button
             type="button"
             onClick={() => triggerTest('hit')}
-            className="px-2.5 py-1 rounded-lg bg-[#8C2D27] hover:bg-[#A6352E] text-[10px] font-bold text-[#FEE2E2] flex items-center gap-1 cursor-pointer"
+            className="px-2 py-1 rounded-lg bg-[#8C2D27] hover:bg-[#A6352E] text-[10px] font-bold text-[#FEE2E2] flex items-center gap-1 cursor-pointer"
           >
-            <Zap className="w-3 h-3" /> Test Bị Đánh
+            <Zap className="w-3 h-3" /> Bị Đánh
           </button>
         </div>
       </div>
@@ -199,8 +210,8 @@ export const CharacterCreatorPanel: React.FC<CharacterCreatorPanelProps> = ({
         })}
       </div>
 
-      {/* 4. 4 Starter Outfits */}
-      <div className="grid grid-cols-4 gap-1">
+      {/* 4. 5 Starter Outfits (incl. Võ Đạo 7-pose martial tunic) */}
+      <div className="grid grid-cols-5 gap-1">
         {OUTFIT_PRESETS.map((o) => {
           const active = config.outfit === o.id;
           return (

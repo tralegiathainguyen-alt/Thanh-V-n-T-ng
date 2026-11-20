@@ -24,6 +24,8 @@ export interface ChibiPaperDollProps {
   /** Optional squash/stretch factors during run */
   squashX?: number;
   squashY?: number;
+  /** Optional alternating stride frame (0 | 1) for multi-frame run cycle */
+  strideFrame?: 0 | 1;
   /** Show footRing & aura layers (default true) */
   showVfx?: boolean;
   className?: string;
@@ -39,11 +41,21 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
   bouncePx = 0,
   squashX = 1,
   squashY = 1,
+  strideFrame,
   showVfx = true,
   className = '',
 }) => {
   // Automatic natural blink every 3–5 seconds (120ms close)
   const [isBlinking, setIsBlinking] = useState(false);
+  const [autoStride, setAutoStride] = useState<0 | 1>(0);
+
+  useEffect(() => {
+    if (motionState !== 'run' || strideFrame !== undefined) return;
+    const iv = window.setInterval(() => {
+      setAutoStride((f) => (f === 0 ? 1 : 0));
+    }, 155);
+    return () => window.clearInterval(iv);
+  }, [motionState, strideFrame]);
 
   useEffect(() => {
     let alive = true;
@@ -71,6 +83,7 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
 
   const outfitMeta = OUTFIT_PRESETS.find((o) => o.id === config.outfit) || OUTFIT_PRESETS[0];
   const ringPreset = showVfx && config.footRingId > 0 ? getVfxRingPreset(config.footRingId) : null;
+  const activeStride = strideFrame ?? autoStride;
 
   const activeExpr: PaperDollCombatExpression =
     motionState === 'attack'
@@ -79,13 +92,35 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
         ? 'hoang_hot'
         : config.expression;
 
-  const bodyPng = facingBack
-    ? CHARACTER_PART_ASSETS.body[config.gender].back
-    : CHARACTER_PART_ASSETS.body[config.gender].front;
+  const poses = CHARACTER_PART_ASSETS.commonPoses;
+  const isFullPoseMode = config.outfit === 'vo_dao';
+  const resolvedPoseBodyPng =
+    motionState === 'attack' && !facingBack
+      ? poses.attack
+      : motionState === 'run'
+        ? facingBack
+          ? activeStride === 0
+            ? poses.backRun1
+            : poses.backRun2
+          : activeStride === 0
+            ? poses.run1
+            : poses.run2
+        : facingBack
+          ? poses.backIdle
+          : poses.idle;
+
+  const bodyPng = isFullPoseMode
+    ? resolvedPoseBodyPng
+    : facingBack
+      ? CHARACTER_PART_ASSETS.body[config.gender].back
+      : CHARACTER_PART_ASSETS.body[config.gender].front;
+
   const genderOutfits = CHARACTER_PART_ASSETS.outfits[config.gender] || {};
-  const outfitPng = facingBack
-    ? genderOutfits[config.outfit]?.back
-    : genderOutfits[config.outfit]?.front;
+  const outfitPng = isFullPoseMode
+    ? undefined
+    : facingBack
+      ? genderOutfits[config.outfit]?.back
+      : genderOutfits[config.outfit]?.front;
   const backHairPng = CHARACTER_PART_ASSETS.backHair[config.gender][config.hairStyle];
   const frontHairPng = facingBack
     ? CHARACTER_PART_ASSETS.backViewHair[config.gender] || CHARACTER_PART_ASSETS.frontHair[config.gender][config.hairStyle]
@@ -119,13 +154,15 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
     config.gender === 'male' && config.outfit === 'luyen_dan'
       ? 'hue-rotate(-38deg) saturate(1.85) brightness(0.88)'
       : undefined;
-  // Female outfits already include complete arms, hands & boots on 512x640, so only draw body_base when male or no outfit
-  const showBaseBodyUnderOutfit = config.gender === 'male' || !outfitPng;
+  const showBaseBodyUnderOutfit = isFullPoseMode || config.gender === 'male' || !outfitPng;
 
   const isRunning = motionState === 'run';
   const isIdle = motionState === 'idle';
   const shadowScale = Math.max(0.75, 1 - bouncePx * 0.025);
   const capeSwayDeg = isRunning ? (facingLeft ? 9 : -9) + Math.sin(bouncePx * 0.9) * 5 : 0;
+  const headLagY = isRunning ? (activeStride === 0 ? -1.4 : 1.2) : motionState === 'attack' ? 1.5 : 0;
+  const motionTilt =
+    motionState === 'attack' ? 7 : motionState === 'hit' ? -8 : tiltDeg;
 
   return (
     <div
@@ -174,9 +211,10 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
         } ${motionState === 'hit' ? 'animate-combat-shake' : ''}`}
         style={{
           transformOrigin: 'bottom center',
-          transform: `translateY(${-bouncePx.toFixed(1)}px) rotate(${tiltDeg.toFixed(2)}deg) scale(${(
+          transform: `translateY(${-bouncePx.toFixed(1)}px) rotate(${motionTilt.toFixed(2)}deg) scale(${(
             (facingLeft ? -1 : 1) * squashX
           ).toFixed(3)}, ${squashY.toFixed(3)})`,
+          transition: isRunning ? 'none' : 'transform 140ms ease-out',
         }}
       >
         {bodyPng ? (
@@ -190,7 +228,7 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
                 className="absolute inset-0 w-full h-full object-contain transition-transform duration-150"
                 style={{
                   transformOrigin: '50% 42%',
-                  transform: `rotate(${(capeSwayDeg * 0.45).toFixed(1)}deg)`,
+                  transform: `translateY(${headLagY.toFixed(1)}px) rotate(${(capeSwayDeg * 0.5).toFixed(1)}deg)`,
                   filter: hairFilter,
                 }}
               />
@@ -220,9 +258,9 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
                 className="absolute inset-0 w-full h-full object-contain"
                 style={{
                   transformOrigin: '52% 30%',
-                  transform: isBlinking ? 'scaleY(0.95)' : 'scaleY(1)',
+                  transform: `translateY(${headLagY.toFixed(1)}px) scaleY(${isBlinking ? 0.94 : 1})`,
                   filter: isBlinking ? 'brightness(0.97)' : undefined,
-                  transition: 'transform 60ms ease-in-out',
+                  transition: 'transform 65ms ease-in-out',
                 }}
               />
             )}
@@ -232,7 +270,10 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
                 alt=""
                 draggable={false}
                 className="absolute inset-0 w-full h-full object-contain"
-                style={{ filter: hairFilter }}
+                style={{
+                  transform: `translateY(${headLagY.toFixed(1)}px)`,
+                  filter: hairFilter,
+                }}
               />
             )}
             {weaponPng && (
@@ -242,11 +283,53 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
                 draggable={false}
                 className="absolute inset-0 w-full h-full object-contain"
                 style={{
+                  filter:
+                    motionState === 'attack'
+                      ? 'drop-shadow(0 0 12px rgba(253,224,71,0.95))'
+                      : 'drop-shadow(0 0 5px rgba(250,204,21,0.55))',
                   transform:
                     motionState === 'attack'
-                      ? 'translate(8px, -6px) rotate(14deg)'
-                      : 'translateY(0px)',
-                  transition: 'transform 150ms ease-out',
+                      ? 'translate(10px, -6px) rotate(18deg) scale(1.08)'
+                      : `translateY(${(-bouncePx * 0.45).toFixed(1)}px)`,
+                  transition: 'transform 140ms ease-out, filter 140ms ease-out',
+                }}
+              />
+            )}
+
+            {/* ACTION VFX: Golden Sword-Qi Slash Arc on Attack */}
+            {showVfx && motionState === 'attack' && (
+              <>
+                <img
+                  src="./assets/vfx_skills/van_kiem/streak_01.png"
+                  alt=""
+                  draggable={false}
+                  className="pointer-events-none absolute -right-[38%] top-[24%] w-[95%] h-auto object-contain"
+                  style={{
+                    mixBlendMode: 'screen',
+                    transform: 'rotate(-16deg)',
+                    filter: 'drop-shadow(0 0 10px rgba(253,224,71,0.9))',
+                  }}
+                />
+                <img
+                  src="./assets/vfx_skills/van_kiem/p_star8.png"
+                  alt=""
+                  draggable={false}
+                  className="pointer-events-none absolute -right-[24%] top-[18%] w-[52%] h-[52%] object-contain animate-ping"
+                  style={{ mixBlendMode: 'screen' }}
+                />
+              </>
+            )}
+
+            {/* ACTION VFX: White Impact Burst on Hit */}
+            {showVfx && motionState === 'hit' && (
+              <img
+                src="./assets/vfx_skills/van_kiem/p_star8.png"
+                alt=""
+                draggable={false}
+                className="pointer-events-none absolute left-1/2 top-[34%] -translate-x-1/2 -translate-y-1/2 w-[78%] h-[78%] object-contain"
+                style={{
+                  mixBlendMode: 'screen',
+                  filter: 'brightness(1.4) drop-shadow(0 0 14px rgba(255,255,255,0.95))',
                 }}
               />
             )}

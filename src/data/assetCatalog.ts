@@ -35,7 +35,7 @@ export interface AssetCatalogEntry {
 }
 
 export const ASSET_CATEGORIES: { id: AssetCategoryId; label: string }[] = [
-  { id: 'paper_doll', label: 'Chibi Tách Lớp (32)' },
+  { id: 'paper_doll', label: 'Chibi Tách Lớp (36)' },
   { id: 'characters', label: 'Nhân Vật' },
   { id: 'vfx_rings', label: 'VFX 16 Vòng' },
   { id: 'vfx_auras', label: 'Aura Thân (16)' },
@@ -487,6 +487,9 @@ function buildCatalog(): AssetCatalogEntry[] {
     ['pd_common_run1', 'Thân Không Đầu · Chạy 1 (512x640)', './assets/paper_doll/common/body_run_1.png'],
     ['pd_common_run2', 'Thân Không Đầu · Chạy 2 (512x640)', './assets/paper_doll/common/body_run_2.png'],
     ['pd_common_attack', 'Thân Không Đầu · Xuất Chiêu (512x640)', './assets/paper_doll/common/body_attack.png'],
+    ['pd_common_back_idle', 'Thân Không Đầu · Quay Lưng Đứng (512x640)', './assets/paper_doll/common/body_back_idle.png'],
+    ['pd_common_back_run1', 'Thân Không Đầu · Quay Lưng Chạy 1 (512x640)', './assets/paper_doll/common/body_back_run_1.png'],
+    ['pd_common_back_run2', 'Thân Không Đầu · Quay Lưng Chạy 2 (512x640)', './assets/paper_doll/common/body_back_run_2.png'],
     ['pd_male_body', 'Nam · Thân Cơ Bản', './assets/paper_doll/male/body_base.png'],
     ['pd_male_hair0', 'Nam · Tóc Búi Mặc Định', './assets/paper_doll/male/hair_0_front.png'],
     ['pd_male_hair1f', 'Nam · Tóc Dài Đen (Trước)', './assets/paper_doll/male/hair_1_front.png'],
