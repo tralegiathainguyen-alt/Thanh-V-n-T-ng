@@ -51,6 +51,20 @@ import { SectMapView } from './components/SectMapView';
 import { CombatArena, BattleVictoryRewards } from './components/CombatArena';
 import { SectBuildingsModal } from './components/SectBuildingsModal';
 import { DisciplesModal } from './components/DisciplesModal';
+import { DiscipleGrowthAction } from './components/DiscipleUpgradePanels';
+import {
+  NATAL_ARTIFACTS,
+  QUALITY_RANKS,
+  getArtUpgradeCost,
+  getArtifactEnhanceCost,
+  getArtifactRefineCost,
+  getCurrentPillToxicity,
+  getDiscipleGrowth,
+  getMaxPillToxicity,
+  getSpiritRootUpgradeCost,
+  getTayTuyPillInfo,
+  getTuViPillInfo,
+} from './data/discipleGrowth';
 import { EquipmentModal } from './components/EquipmentModal';
 import { WorldRealmModal } from './components/WorldRealmModal';
 import { AllianceMarketModal } from './components/AllianceMarketModal';
@@ -1092,6 +1106,258 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
       ),
     }));
     showToast(`Đã truyền +${formatNum(transfer)} Linh Khí cho ${disc.name}!`);
+  };
+
+  const handleDiscipleGrowthAction = (discipleId: string, action: DiscipleGrowthAction) => {
+    const disc = state.disciples.find((d) => d.id === discipleId);
+    if (!disc) return;
+    const growth = getDiscipleGrowth(disc);
+    const tangKinhLvl = state.buildings.tang_kinh_cac.level;
+    const forgeLvl = state.buildings.luyen_khi_cac.level;
+    const duocDienLvl = state.buildings.duoc_dien.level;
+    const luyenDanLvl = state.buildings.luyen_dan_phong.level;
+
+    if (action.type === 'upgrade_root') {
+      const upg = getSpiritRootUpgradeCost(disc.spiritRoot);
+      if (!upg) return;
+      if (
+        state.resources.linhThach < upg.linhThach ||
+        state.resources.linhKhi < upg.linhKhi ||
+        state.resources.tinhHoaBoss < upg.tinhHoaBoss
+      ) {
+        return;
+      }
+      sfx.breakthrough(true);
+      setState((prev) => ({
+        ...prev,
+        resources: {
+          ...prev.resources,
+          linhThach: prev.resources.linhThach - upg.linhThach,
+          linhKhi: prev.resources.linhKhi - upg.linhKhi,
+          tinhHoaBoss: prev.resources.tinhHoaBoss - upg.tinhHoaBoss,
+        },
+        disciples: prev.disciples.map((d) =>
+          d.id === discipleId ? { ...d, spiritRoot: upg.nextGrade } : d,
+        ),
+      }));
+      showToast(`${disc.name} tẩy luyện thành công lên ${SPIRIT_ROOT_META[upg.nextGrade].name}!`);
+      return;
+    }
+
+    if (action.type === 'upgrade_art') {
+      const curLvl =
+        action.kind === 'tamPhap'
+          ? growth.cultivationArts.tamPhapLevel
+          : growth.cultivationArts.thanThongLevel;
+      if (curLvl >= 10) return;
+      const cost = getArtUpgradeCost(curLvl, tangKinhLvl);
+      if (state.resources.linhKhi < cost.linhKhi || state.resources.linhThach < cost.linhThach) return;
+      sfx.upgrade();
+      setState((prev) => ({
+        ...prev,
+        resources: {
+          ...prev.resources,
+          linhKhi: prev.resources.linhKhi - cost.linhKhi,
+          linhThach: prev.resources.linhThach - cost.linhThach,
+        },
+        disciples: prev.disciples.map((d) => {
+          if (d.id !== discipleId) return d;
+          const g = getDiscipleGrowth(d);
+          return {
+            ...d,
+            cultivationArts: {
+              ...g.cultivationArts,
+              tamPhapLevel:
+                action.kind === 'tamPhap' ? g.cultivationArts.tamPhapLevel + 1 : g.cultivationArts.tamPhapLevel,
+              thanThongLevel:
+                action.kind === 'thanThong' ? g.cultivationArts.thanThongLevel + 1 : g.cultivationArts.thanThongLevel,
+            },
+          };
+        }),
+      }));
+      showToast(
+        `${disc.name} đột phá ${action.kind === 'tamPhap' ? 'Tâm Pháp' : 'Thần Thông'} lên Tầng ${curLvl + 1}!`,
+      );
+      return;
+    }
+
+    if (action.type === 'select_artifact') {
+      sfx.click();
+      setState((prev) => ({
+        ...prev,
+        disciples: prev.disciples.map((d) => {
+          if (d.id !== discipleId) return d;
+          const g = getDiscipleGrowth(d);
+          return { ...d, natalArtifact: { ...g.natalArtifact, type: action.artifactType } };
+        }),
+      }));
+      showToast(`${disc.name} đã chuyển sang sử dụng ${NATAL_ARTIFACTS[action.artifactType].name}!`);
+      return;
+    }
+
+    if (action.type === 'enhance_artifact') {
+      const enh = growth.natalArtifact.enhanceLevel;
+      if (enh >= 20) return;
+      const cost = getArtifactEnhanceCost(enh, forgeLvl);
+      if (
+        state.resources.huyenThiet < cost.huyenThiet ||
+        state.resources.cuongHoaThach < cost.cuongHoaThach ||
+        state.resources.linhThach < cost.linhThach
+      ) {
+        return;
+      }
+      sfx.upgrade();
+      setState((prev) => ({
+        ...prev,
+        resources: {
+          ...prev.resources,
+          huyenThiet: prev.resources.huyenThiet - cost.huyenThiet,
+          cuongHoaThach: prev.resources.cuongHoaThach - cost.cuongHoaThach,
+          linhThach: prev.resources.linhThach - cost.linhThach,
+        },
+        disciples: prev.disciples.map((d) => {
+          if (d.id !== discipleId) return d;
+          const g = getDiscipleGrowth(d);
+          return {
+            ...d,
+            natalArtifact: { ...g.natalArtifact, enhanceLevel: g.natalArtifact.enhanceLevel + 1 },
+          };
+        }),
+      }));
+      showToast(`Cường hóa Pháp Bảo của ${disc.name} lên +${enh + 1}!`);
+      return;
+    }
+
+    if (action.type === 'refine_artifact') {
+      const refLvl = growth.natalArtifact.refineLevel;
+      if (refLvl >= 5) return;
+      const cost = getArtifactRefineCost(refLvl);
+      if (
+        forgeLvl < cost.requiredForgeLevel ||
+        state.resources.huyenThiet < cost.huyenThiet ||
+        state.resources.tinhHoaBoss < cost.tinhHoaBoss ||
+        state.resources.linhThach < cost.linhThach
+      ) {
+        return;
+      }
+      sfx.breakthrough(true);
+      setState((prev) => ({
+        ...prev,
+        resources: {
+          ...prev.resources,
+          huyenThiet: prev.resources.huyenThiet - cost.huyenThiet,
+          tinhHoaBoss: prev.resources.tinhHoaBoss - cost.tinhHoaBoss,
+          linhThach: prev.resources.linhThach - cost.linhThach,
+        },
+        disciples: prev.disciples.map((d) => {
+          if (d.id !== discipleId) return d;
+          const g = getDiscipleGrowth(d);
+          return {
+            ...d,
+            natalArtifact: { ...g.natalArtifact, refineLevel: g.natalArtifact.refineLevel + 1 },
+          };
+        }),
+      }));
+      showToast(`Tế Luyện Pháp Bảo của ${disc.name} đạt Tầng ${refLvl + 1}!`);
+      return;
+    }
+
+    if (action.type === 'consume_tuvi_pill') {
+      if (disc.qi >= disc.maxQi) return;
+      const info = getTuViPillInfo(disc, duocDienLvl, luyenDanLvl);
+      if (state.resources.linhThao < info.linhThao || state.resources.linhThach < info.linhThach) return;
+      sfx.harvest();
+      setState((prev) => ({
+        ...prev,
+        resources: {
+          ...prev.resources,
+          linhThao: prev.resources.linhThao - info.linhThao,
+          linhThach: prev.resources.linhThach - info.linhThach,
+        },
+        disciples: prev.disciples.map((d) => {
+          if (d.id !== discipleId) return d;
+          const g = getDiscipleGrowth(d);
+          return {
+            ...d,
+            qi: Math.min(d.maxQi, d.qi + info.qiGain),
+            alchemy: { ...g.alchemy, tuViPillsUsed: g.alchemy.tuViPillsUsed + 1 },
+          };
+        }),
+      }));
+      showToast(`${disc.name} uống Tu Vi Đan, tăng +${formatNum(info.qiGain)} Linh Khí!`);
+      return;
+    }
+
+    if (action.type === 'consume_taytuy_pill') {
+      const curTox = getCurrentPillToxicity(disc);
+      const maxTox = getMaxPillToxicity(disc.realmIndex);
+      if (curTox >= maxTox) {
+        showToast('Đan Độc đã đầy ở cảnh giới hiện tại! Hãy đột phá cảnh giới mới để tẩy độc.');
+        return;
+      }
+      const info = getTayTuyPillInfo(action.statKey, disc, duocDienLvl);
+      if (state.resources.linhThao < info.linhThao || state.resources.linhThach < info.linhThach) return;
+      sfx.upgrade();
+      setState((prev) => ({
+        ...prev,
+        resources: {
+          ...prev.resources,
+          linhThao: prev.resources.linhThao - info.linhThao,
+          linhThach: prev.resources.linhThach - info.linhThach,
+        },
+        disciples: prev.disciples.map((d) => {
+          if (d.id !== discipleId) return d;
+          const g = getDiscipleGrowth(d);
+          const nextTox = getCurrentPillToxicity(d) + 1;
+          return {
+            ...d,
+            alchemy: {
+              ...g.alchemy,
+              tayTuyCounts: {
+                ...g.alchemy.tayTuyCounts,
+                [action.statKey]: (g.alchemy.tayTuyCounts[action.statKey] || 0) + info.gain,
+              },
+              pillToxicity: nextTox,
+              pillToxicityRealmIdx: d.realmIndex,
+            },
+          };
+        }),
+      }));
+      const statLabel = action.statKey === 'atk' ? 'Công Kích' : action.statKey === 'hp' ? 'Sinh Lực' : 'Phòng Thủ';
+      showToast(`${disc.name} Tẩy Tủy thành công: +${formatNum(info.gain)} ${statLabel} vĩnh viễn! (Đan Độc ${curTox + 1}/${maxTox})`);
+      return;
+    }
+
+    if (action.type === 'ascend_quality') {
+      const nextRank = (growth.qualityRank + 1) as 1 | 2 | 3 | 4;
+      const nextMeta = QUALITY_RANKS[nextRank];
+      const cost = nextMeta?.upgradeCost;
+      if (!nextMeta || !cost) return;
+      if (
+        state.alliance.contribution < cost.contribution ||
+        state.resources.linhThach < cost.linhThach ||
+        state.resources.tinhHoaBoss < cost.tinhHoaBoss
+      ) {
+        return;
+      }
+      sfx.breakthrough(true);
+      setState((prev) => ({
+        ...prev,
+        alliance: {
+          ...prev.alliance,
+          contribution: prev.alliance.contribution - cost.contribution,
+        },
+        resources: {
+          ...prev.resources,
+          linhThach: prev.resources.linhThach - cost.linhThach,
+          tinhHoaBoss: prev.resources.tinhHoaBoss - cost.tinhHoaBoss,
+        },
+        disciples: prev.disciples.map((d) =>
+          d.id === discipleId ? { ...d, qualityRank: nextRank } : d,
+        ),
+      }));
+      showToast(`${disc.name} Thăng Phẩm lên ${nextMeta.name}, mở khóa Thiên Phú [${nextMeta.talentName}]!`);
+    }
   };
 
   const handleBreakthrough = (discipleId: string, pillsUsed: number): { success: boolean; message: string } => {
@@ -2903,6 +3169,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
             setSelectedEquipDiscipleId(dId);
             setActiveModal('equipment');
           }}
+          onDiscipleGrowthAction={handleDiscipleGrowthAction}
         />
       )}
 

@@ -205,6 +205,15 @@ export const SPIRIT_ROOT_META: Record<
     color: '#15803D',
     description: 'Mộc Thủy hóa Thanh Phong, liên hoàn chiêu thức bất tuyệt.',
   },
+  hon_don_linh_can: {
+    name: 'Hỗn Độn Linh Căn',
+    tierLabel: 'Tiên Phẩm',
+    qiSpeedMult: 3.4,
+    breakthroughBonus: 26,
+    elemDmgBonus: 55,
+    color: '#D97706',
+    description: 'Ngũ hành quy nhất thành Hỗn Độn, khuếch đại cực hạn Tương Sinh & Combo Liên Hoàn.',
+  },
 };
 
 export const RARITY_META: Record<

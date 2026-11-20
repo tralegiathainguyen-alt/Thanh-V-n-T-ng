@@ -15,6 +15,12 @@ import {
   SpiritRootSeal,
 } from './ElementIcons';
 import { Flame, RefreshCw, Sparkles, Swords, UserPlus, Zap } from 'lucide-react';
+import { QUALITY_RANKS } from '../data/discipleGrowth';
+import {
+  DiscipleDetailTab,
+  DiscipleGrowthAction,
+  DiscipleUpgradePanels,
+} from './DiscipleUpgradePanels';
 
 interface DisciplesModalProps {
   state: GameState;
@@ -25,6 +31,7 @@ interface DisciplesModalProps {
   onRecruitDisciple: (candidateId: string) => void;
   onRefreshRecruits: (premium: boolean) => void;
   onOpenEquipmentFor: (discipleId: string) => void;
+  onDiscipleGrowthAction: (discipleId: string, action: DiscipleGrowthAction) => void;
 }
 
 export function DisciplesModal({
@@ -36,8 +43,10 @@ export function DisciplesModal({
   onRecruitDisciple,
   onRefreshRecruits,
   onOpenEquipmentFor,
+  onDiscipleGrowthAction,
 }: DisciplesModalProps) {
   const [tab, setTab] = useState<'roster' | 'recruit'>('roster');
+  const [detailTab, setDetailTab] = useState<DiscipleDetailTab>('overview');
   const [selectedId, setSelectedId] = useState<string>(state.disciples[0]?.id || '');
   const [pillsToUse, setPillsToUse] = useState(1);
   const [tribulationMsg, setTribulationMsg] = useState<{ success: boolean; text: string } | null>(null);
@@ -45,6 +54,7 @@ export function DisciplesModal({
 
   const selected: Disciple | undefined = state.disciples.find((d) => d.id === selectedId) || state.disciples[0];
   const tangKinhLvl = state.buildings.tang_kinh_cac.level;
+  const forgeLvl = state.buildings.luyen_khi_cac.level;
   const maxDisciples = 4 + state.buildings.chinh_dien.level * 2;
   const formationCount = state.disciples.filter((d) => d.inFormation).length;
 
@@ -58,11 +68,12 @@ export function DisciplesModal({
   };
 
   const selectedStats = selected
-    ? computeDiscipleStats(selected, state.inventory, state.alliance, tangKinhLvl)
+    ? computeDiscipleStats(selected, state.inventory, state.alliance, tangKinhLvl, forgeLvl)
     : null;
   const selectedRealm = selected ? REALM_LADDER[selected.realmIndex] : REALM_LADDER[0];
   const nextRealm = selected ? REALM_LADDER[selected.realmIndex + 1] : undefined;
-  const rootMeta = selected ? SPIRIT_ROOT_META[selected.spiritRoot] : SPIRIT_ROOT_META.tu_linh_can;
+  const rootMeta = selected ? SPIRIT_ROOT_META[selected.spiritRoot] || SPIRIT_ROOT_META.tu_linh_can : SPIRIT_ROOT_META.tu_linh_can;
+  const qualityMeta = QUALITY_RANKS[selected?.qualityRank ?? 0] || QUALITY_RANKS[0];
   const actualPills = Math.min(pillsToUse, state.resources.dotPhaDan);
   const breakChance = selected ? calculateBreakthroughChance(selected, actualPills) : 0;
 
@@ -142,9 +153,9 @@ export function DisciplesModal({
           {/* Disciple Roster List (5 cols) */}
           <div className="lg:col-span-5 space-y-2 max-h-[60vh] overflow-y-auto pr-1">
             {state.disciples.map((d) => {
-              const st = computeDiscipleStats(d, state.inventory, state.alliance, tangKinhLvl);
+              const st = computeDiscipleStats(d, state.inventory, state.alliance, tangKinhLvl, forgeLvl);
               const rm = REALM_LADDER[d.realmIndex];
-              const rt = SPIRIT_ROOT_META[d.spiritRoot];
+              const rt = SPIRIT_ROOT_META[d.spiritRoot] || SPIRIT_ROOT_META.tu_linh_can;
               const isSel = d.id === selected.id;
               const readyBreak = d.qi >= d.maxQi && d.realmIndex < REALM_LADDER.length - 1;
               const df = d.fashionId ? VIP_FASHIONS[d.fashionId] : null;
@@ -219,10 +230,20 @@ export function DisciplesModal({
                     fullBody
                   />
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-xl font-bold text-[#1E3331]" style={{ fontFamily: 'var(--font-display)' }}>
                         {selected.name}
                       </h3>
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                        style={{
+                          color: qualityMeta.color,
+                          backgroundColor: qualityMeta.bgTint,
+                          borderColor: `${qualityMeta.color}66`,
+                        }}
+                      >
+                        {qualityMeta.name}
+                      </span>
                       <ElementSeal element={selected.element} size="sm" showName />
                       {selected.secondaryElement && <ElementSeal element={selected.secondaryElement} size="xs" />}
                     </div>
@@ -271,8 +292,34 @@ export function DisciplesModal({
                 </div>
               </div>
 
+              {/* 6-Pillar Disciple Growth Sub-Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-[#DFD2B6]">
+                {(
+                  [
+                    { id: 'overview', label: 'Đột Phá' },
+                    { id: 'root', label: 'Linh Căn' },
+                    { id: 'arts', label: 'Công Pháp' },
+                    { id: 'artifact', label: 'Pháp Bảo' },
+                    { id: 'alchemy', label: 'Luyện Đan' },
+                    { id: 'quality', label: 'Thăng Phẩm' },
+                  ] as const
+                ).map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setDetailTab(t.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      detailTab === t.id
+                        ? 'bg-[#1E3B38] text-[#F9E6B3] shadow-xs'
+                        : 'bg-[#EAE0CA] text-[#4C4335] hover:bg-[#DFD1B4]'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Aptitude & Combat Stats Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-[#DFD2B6] text-xs font-mono tabular-nums">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs font-mono tabular-nums">
                 <div className="p-2 rounded bg-[#ECE3CE]">
                   <div className="font-sans text-[11px] text-[#6B5F4C]">Chiến Lực</div>
                   <div className="font-bold text-sm text-[#8A5A0F]">{formatNum(selectedStats.power)}</div>
@@ -314,7 +361,8 @@ export function DisciplesModal({
               </div>
             </div>
 
-            {/* Cultivation & Breakthrough Ritual Card */}
+            {/* Cultivation & Breakthrough Ritual Card OR 5-Pillar Upgrade Panels */}
+            {detailTab === 'overview' ? (
             <div className="p-4 rounded-xl bg-[#EFE6D2] border-2 border-[#C9A45C] space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-base font-bold text-[#1E3331] flex items-center gap-1.5" style={{ fontFamily: 'var(--font-display)' }}>
@@ -412,6 +460,14 @@ export function DisciplesModal({
                 </div>
               ) : null}
             </div>
+            ) : (
+              <DiscipleUpgradePanels
+                tab={detailTab}
+                disciple={selected}
+                state={state}
+                onAction={(action) => onDiscipleGrowthAction(selected.id, action)}
+              />
+            )}
           </div>
         </div>
       ) : (

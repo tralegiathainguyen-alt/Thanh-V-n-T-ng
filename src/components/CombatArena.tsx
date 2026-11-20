@@ -87,7 +87,11 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       .sort((a, b) => a.formationOrder - b.formationOrder)
       .slice(0, 5)
       .map((d) => {
-        const st = computeDiscipleStats(d, state.inventory, state.alliance, tangKinhLvl);
+        const forgeLvl = state.buildings.luyen_khi_cac.level;
+        const st = computeDiscipleStats(d, state.inventory, state.alliance, tangKinhLvl, forgeLvl);
+        const startShield = st.combatMods.startShieldPct > 0
+          ? Math.round((st.hp * st.combatMods.startShieldPct) / 100)
+          : 0;
         return {
           id: d.id,
           name: d.name,
@@ -99,8 +103,8 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
           spiritRoot: d.spiritRoot,
           maxHp: st.hp,
           hp: st.hp,
-          shield: 0,
-          mp: 35,
+          shield: startShield,
+          mp: st.combatMods.startMp,
           maxMp: 100,
           atk: st.atk,
           def: st.def,
@@ -109,6 +113,8 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
           critDmg: st.critDmg,
           elemBonus: st.elemBonus,
           skills: ELEMENT_SKILLS[d.element],
+          combatMods: st.combatMods,
+          deathImmunityUsed: false,
         };
       });
 
@@ -325,11 +331,18 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       return;
     }
 
-    // 1. Pre-compute combat math (identical to original battle engine)
-    if (skill.mpCost > 0) {
-      acting.mp = Math.max(0, acting.mp - skill.mpCost);
+    // 1. Pre-compute combat math (with 5-pillar Disciple Growth tactical modifiers)
+    const mods = acting.combatMods;
+    const effectiveMpCost =
+      skill.mpCost > 0 ? Math.max(10, skill.mpCost - (mods?.ultMpDiscount || 0)) : 0;
+
+    if (effectiveMpCost > 0) {
+      acting.mp = Math.max(0, acting.mp - effectiveMpCost);
+      if (mods?.mpRegenPerTurn) {
+        acting.mp = Math.min(acting.maxMp, acting.mp + Math.floor(mods.mpRegenPerTurn * 0.5));
+      }
     } else {
-      acting.mp = Math.min(acting.maxMp, acting.mp + 25);
+      acting.mp = Math.min(acting.maxMp, acting.mp + 25 + (mods?.mpRegenPerTurn || 0));
     }
 
     let isComboTriggered = false;
@@ -344,7 +357,10 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     }
 
     const tangKinhBonus = acting.isAlly ? 1 + (state.buildings.tang_kinh_cac.level - 1) * 0.06 : 1;
-    const comboMult = isComboTriggered ? 1 + 0.25 * newComboChain : 1;
+    const comboMult = isComboTriggered
+      ? 1 + 0.25 * newComboChain + (mods?.comboDmgBonus || 0) / 100
+      : 1;
+    const skillMult = skill.multiplier * (1 + (mods?.skillDmgPct || 0) / 100);
 
     const hitIds: string[] = [];
     const logs: string[] = [];
@@ -355,7 +371,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     if (skill.target === 'ally_heal') {
       const team = nextUnits.filter((u) => u.isAlly === acting.isAlly && u.hp > 0);
       team.forEach((ally) => {
-        const healAmt = Math.round((acting.atk * skill.multiplier * 1.45 + ally.maxHp * 0.14) * comboMult);
+        const healAmt = Math.round((acting.atk * skillMult * 1.45 + ally.maxHp * 0.14) * comboMult);
         ally.hp = Math.min(ally.maxHp, ally.hp + healAmt);
         pendingFloats.push({
           unitId: ally.id,
@@ -390,21 +406,38 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
           : [oppPool.find((u) => u.id === targetId) || oppPool[0]].filter(Boolean);
 
       primaryTargetUnit = targets[0] || null;
+      let totalDmgDealt = 0;
 
-      targets.forEach((tgt) => {
-        hitIds.push(tgt.id);
+      const applyHitToTarget = (tgt: StageCombatUnit, dmgScale = 1, extraTag?: string) => {
+        if (!hitIds.includes(tgt.id)) hitIds.push(tgt.id);
         const rel = getElementRelation(skill.element, tgt.element);
         const elemRelMult = rel === 'counter' ? 1.35 : rel === 'resisted' ? 0.8 : 1.0;
         const critChance =
-          acting.crit + (rel === 'counter' ? 15 : 0) + (isComboTriggered && skill.element === 'Kim' ? 25 : 0);
+          acting.crit +
+          (rel === 'counter' ? 15 : 0) +
+          (isComboTriggered && skill.element === 'Kim' ? 25 : 0) +
+          (isComboTriggered ? mods?.comboCritBonus || 0 : 0);
         const isCrit = Math.random() * 100 < critChance;
         if (isCrit) anyCrit = true;
         const critMult = isCrit ? acting.critDmg / 100 : 1.0;
 
-        const armorPen = isComboTriggered && skill.element === 'Kim' ? 0.72 : 1.0;
-        const mitigatedAtk = Math.max(acting.atk * 0.28, acting.atk * skill.multiplier - tgt.def * 0.42 * armorPen);
-        const rawDmg = mitigatedAtk * (1 + acting.elemBonus / 100) * elemRelMult * comboMult * critMult * tangKinhBonus;
+        const basePen = isComboTriggered && skill.element === 'Kim' ? 0.72 : 1.0;
+        const totalPenPct = (mods?.armorPenBonus || 0) * (isComboTriggered ? 1.0 : 0.65);
+        const armorPen = Math.max(0.25, basePen - totalPenPct / 100);
+        const bossMult = tgt.isBoss && mods?.bossDmgPct ? 1 + mods.bossDmgPct / 100 : 1;
+
+        const mitigatedAtk = Math.max(acting.atk * 0.28, acting.atk * skillMult - tgt.def * 0.42 * armorPen);
+        const rawDmg =
+          mitigatedAtk *
+          (1 + acting.elemBonus / 100) *
+          elemRelMult *
+          comboMult *
+          critMult *
+          tangKinhBonus *
+          bossMult *
+          dmgScale;
         const finalDmg = Math.max(18, Math.round(rawDmg * (0.94 + Math.random() * 0.12)));
+        totalDmgDealt += finalDmg;
 
         let remainingDmg = finalDmg;
         if (tgt.shield > 0) {
@@ -414,11 +447,23 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         }
         tgt.hp = Math.max(0, tgt.hp - remainingDmg);
 
+        // Tiên Phẩm Thiên Phú: Bất Hoại Kim Thân (miễn tử 1 lần khi tụt về 1 HP)
+        let triggeredImmortal = false;
+        if (tgt.hp <= 0 && tgt.combatMods?.deathImmunity && !tgt.deathImmunityUsed) {
+          tgt.hp = 1;
+          tgt.deathImmunityUsed = true;
+          tgt.shield += Math.round(tgt.maxHp * 0.25);
+          triggeredImmortal = true;
+          logs.push(`[Bất Hoại] ${tgt.name} kích hoạt Bất Hoại Kim Thân, miễn tử giữ lại 1 HP & tạo Hộ Thuẫn!`);
+        }
+
         const tags: string[] = [];
+        if (extraTag) tags.push(extraTag);
         if (isComboTriggered) tags.push(`LIÊN HOÀN x${newComboChain}`);
         if (rel === 'counter') tags.push('KHẮC CHẾ!');
         if (isCrit) tags.push('BẠO KÍCH!');
-        if (armorPen < 1) tags.push('XUYÊN GIÁP');
+        if (armorPen < 0.92) tags.push('XUYÊN GIÁP');
+        if (triggeredImmortal) tags.push('BẤT HOẠI MIỄN TỬ!');
 
         pendingFloats.push({
           unitId: tgt.id,
@@ -427,7 +472,49 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
           subText: tags.join(' · ') || undefined,
           isCrit,
         });
+      };
+
+      targets.forEach((tgt) => {
+        applyHitToTarget(tgt, 1);
+
+        // Thần Thông Tầng 9: Liên Kích (bồi thêm đòn 55% sát thương)
+        if (tgt.hp > 0 && mods?.multiStrikeChance && Math.random() * 100 < mods.multiStrikeChance) {
+          applyHitToTarget(tgt, 0.55, 'LIÊN KÍCH!');
+        }
+
+        // Tâm Pháp / Hộ Tâm Kính: Tỷ lệ Phản Kích khi bị đánh trúng
+        if (tgt.hp > 0 && acting.hp > 0 && tgt.combatMods?.counterChance && Math.random() * 100 < tgt.combatMods.counterChance) {
+          const counterDmg = Math.max(15, Math.round(tgt.atk * 0.55));
+          acting.hp = Math.max(1, acting.hp - counterDmg);
+          pendingFloats.push({
+            unitId: acting.id,
+            text: `-${formatNum(counterDmg)}`,
+            color: '#F59E0B',
+            subText: 'PHẢN KÍCH!',
+          });
+          logs.push(`[Phản Kích] ${tgt.name} xuất chiêu phản kích ${acting.name} gây ${formatNum(counterDmg)} ST!`);
+        }
       });
+
+      // Thần Thông Tầng 6: Đánh Lan thêm 1 mục tiêu phụ cho chiêu đơn mục tiêu
+      if (skill.target === 'single' && mods?.splashTargetPct && oppPool.length > 1) {
+        const splashTarget = oppPool.find((u) => u.hp > 0 && u.id !== primaryTargetUnit?.id);
+        if (splashTarget) {
+          applyHitToTarget(splashTarget, mods.splashTargetPct / 100, 'ĐÁNH LAN');
+        }
+      }
+
+      // Pháp Bảo Tế Luyện (Luyện Đan Đỉnh): Hút Máu theo tổng sát thương gây ra
+      if (mods?.lifestealPct && totalDmgDealt > 0 && acting.hp > 0) {
+        const lsHeal = Math.max(10, Math.round((totalDmgDealt * mods.lifestealPct) / 100));
+        acting.hp = Math.min(acting.maxHp, acting.hp + lsHeal);
+        pendingFloats.push({
+          unitId: acting.id,
+          text: `+${formatNum(lsHeal)}`,
+          color: '#34D399',
+          subText: 'HÚT MÁU',
+        });
+      }
 
       if (skill.id === 'moc_basic') {
         const selfHeal = Math.round(acting.maxHp * (isComboTriggered ? 0.14 : 0.08));
@@ -640,7 +727,10 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         const basic = activeUnit.skills[0];
 
         let chosenSkill = basic;
-        if (ult && activeUnit.mp >= ult.mpCost) {
+        const ultCost = ult
+          ? Math.max(10, ult.mpCost - (activeUnit.combatMods?.ultMpDiscount || 0))
+          : 999;
+        if (ult && activeUnit.mp >= ultCost) {
           if (ult.target === 'ally_heal') {
             const injured = unitsRef.current.some(
               (u) => u.isAlly === activeUnit.isAlly && u.hp > 0 && u.hp < u.maxHp * 0.72,
@@ -845,7 +935,11 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
 
             <div className="flex-1 grid grid-cols-2 gap-1.5 sm:gap-2">
               {(deckAlly?.skills || []).map((sk) => {
-                const canCast = isPlayerTurn && activeUnit && activeUnit.mp >= sk.mpCost;
+                const effCost =
+                  sk.mpCost > 0
+                    ? Math.max(10, sk.mpCost - (deckAlly?.combatMods?.ultMpDiscount || 0))
+                    : 0;
+                const canCast = isPlayerTurn && activeUnit && activeUnit.mp >= effCost;
                 const willCombo = Boolean(activeUnit?.isAlly && doesGenerateElement(comboElement, sk.element));
                 return (
                   <button
@@ -872,7 +966,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
                         </div>
                       </div>
                       <span className="text-[9px] sm:text-[10px] font-mono font-bold text-[#93C5FD] whitespace-nowrap shrink-0">
-                        {sk.mpCost > 0 ? `-${sk.mpCost}` : '+25'}
+                        {effCost > 0 ? `-${effCost}` : `+${25 + (deckAlly?.combatMods?.mpRegenPerTurn || 0)}`}
                       </span>
                     </div>
                     <div className="hidden sm:block text-[10px] text-[#F2D180] mt-0.5 truncate">{sk.comboBonusDesc}</div>
@@ -910,7 +1004,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
 
       {/* Victory / Defeat Result Modal (Preserved 100%) */}
       {battleOutcome && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
           <div className="w-full max-w-lg scroll-parchment p-4 sm:p-5 text-[#24211C] space-y-4">
             <div className="flex items-center justify-between border-b border-[#D5C39E] pb-3">
               <div className="flex items-center gap-3">

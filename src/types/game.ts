@@ -26,7 +26,31 @@ export type SpiritRootGrade =
   | 'thien_linh_can'
   | 'bien_di_loi'
   | 'bien_di_bang'
-  | 'bien_di_phong';
+  | 'bien_di_phong'
+  | 'hon_don_linh_can';
+
+export type NatalArtifactType = 'phi_kiem' | 'luyen_dan_dinh' | 'ho_tam_kinh' | 'ngoc_boi';
+
+/** 0: Phàm | 1: Linh | 2: Địa | 3: Thiên | 4: Tiên */
+export type DiscipleQualityRank = 0 | 1 | 2 | 3 | 4;
+
+export interface DiscipleCultivationArts {
+  tamPhapLevel: number; // 1..10 (Tâm Pháp bị động)
+  thanThongLevel: number; // 1..10 (Thần Thông chủ động)
+}
+
+export interface DiscipleNatalArtifact {
+  type: NatalArtifactType;
+  enhanceLevel: number; // 0..20 (Cường Hóa)
+  refineLevel: number; // 0..5 (Tế Luyện)
+}
+
+export interface DiscipleAlchemyState {
+  tuViPillsUsed: number;
+  tayTuyCounts: { atk: number; hp: number; def: number };
+  pillToxicity: number;
+  pillToxicityRealmIdx: number;
+}
 
 export interface GemItem {
   id: string;
@@ -96,6 +120,10 @@ export interface Disciple {
   formationOrder: number; // 0..4
   equipped: Partial<Record<EquipmentSlot, string>>; // slot -> EquipmentItem.id
   fashionId?: VipFashionId | null;
+  cultivationArts?: DiscipleCultivationArts;
+  natalArtifact?: DiscipleNatalArtifact;
+  alchemy?: DiscipleAlchemyState;
+  qualityRank?: DiscipleQualityRank;
 }
 
 export type VipFashionId = 'thanh_lien_tien_y' | 'thai_co_long_bao' | 'hong_mong_de_ton';

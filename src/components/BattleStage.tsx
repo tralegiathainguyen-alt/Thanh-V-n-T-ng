@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ELEMENT_META } from '../data/constants';
 import { ElementType, SkillDef, SpiritRootGrade } from '../types/game';
-import { formatNum, getElementRelation } from '../utils/gameLogic';
+import { formatNum, getElementRelation, DiscipleCombatMods } from '../utils/gameLogic';
 import { getVfxRingIndexForRealm, getVfxRingPreset } from '../data/vfxRings';
 import { getVfxAuraIndexForRealm } from '../data/vfxAuras';
 import { VanKiemQuyTongVFX, VanKiemQuyTongVfxHandle } from './VanKiemQuyTongVFX';
@@ -31,6 +31,8 @@ export interface StageCombatUnit {
   elemBonus: number;
   isBoss?: boolean;
   skills: SkillDef[];
+  combatMods?: DiscipleCombatMods;
+  deathImmunityUsed?: boolean;
 }
 
 export interface StageFloatingText {
@@ -329,7 +331,7 @@ export const BattleStage: React.FC<BattleStageProps> = ({
 
   return (
     <div
-      className={`relative flex-1 w-full overflow-hidden select-none ${
+      className={`relative isolate z-0 flex-1 w-full overflow-hidden select-none ${
         screenShake ? 'animate-combat-shake' : ''
       }`}
     >

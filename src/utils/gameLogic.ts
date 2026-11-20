@@ -20,6 +20,14 @@ import {
   VIP_LEVEL_THRESHOLDS,
 } from '../data/constants';
 import {
+  SPIRIT_ROOT_COMBAT_BONUS,
+  getArtifactStats,
+  getDiscipleGrowth,
+  getQualityTalents,
+  getTamPhapBonus,
+  getThanThongBonus,
+} from '../data/discipleGrowth';
+import {
   AllianceState,
   BuildingId,
   Disciple,
@@ -262,6 +270,23 @@ export function generateDisciple(options?: {
   };
 }
 
+export interface DiscipleCombatMods {
+  comboCritBonus: number;
+  armorPenBonus: number;
+  ultMpDiscount: number;
+  comboDmgBonus: number;
+  mpRegenPerTurn: number;
+  counterChance: number;
+  skillDmgPct: number;
+  splashTargetPct: number;
+  multiStrikeChance: number;
+  lifestealPct: number;
+  startShieldPct: number;
+  bossDmgPct: number;
+  startMp: number;
+  deathImmunity: boolean;
+}
+
 export interface ComputedDiscipleStats {
   hp: number;
   atk: number;
@@ -272,6 +297,7 @@ export interface ComputedDiscipleStats {
   elemBonus: number;
   power: number;
   activeSets: { setId: string; name: string; count: number }[];
+  combatMods: DiscipleCombatMods;
 }
 
 export function computeDiscipleStats(
@@ -279,17 +305,37 @@ export function computeDiscipleStats(
   inventory: EquipmentItem[],
   alliance?: AllianceState,
   tangKinhLevel = 1,
+  forgeLevel = 1,
 ): ComputedDiscipleStats {
   const stage = REALM_LADDER[disciple.realmIndex] || REALM_LADDER[0];
-  const rootMeta = SPIRIT_ROOT_META[disciple.spiritRoot];
+  const rootMeta = SPIRIT_ROOT_META[disciple.spiritRoot] || SPIRIT_ROOT_META.tu_linh_can;
+  const rootCombat = SPIRIT_ROOT_COMBAT_BONUS[disciple.spiritRoot] || SPIRIT_ROOT_COMBAT_BONUS.tu_linh_can;
+  const growth = getDiscipleGrowth(disciple);
+  const tamPhap = getTamPhapBonus(growth.cultivationArts.tamPhapLevel);
+  const thanThong = getThanThongBonus(growth.cultivationArts.thanThongLevel);
+  const artStats = getArtifactStats(growth.natalArtifact, forgeLevel);
+  const qualityTalents = getQualityTalents(growth.qualityRank);
 
-  let hp = Math.round((460 + disciple.aptitude.cotCan * 6.5) * stage.statMult);
-  let atk = Math.round((78 + disciple.aptitude.ngoTinh * 1.35) * stage.statMult);
-  let def = Math.round((34 + disciple.aptitude.cotCan * 0.72) * stage.statMult);
-  let spd = Math.round(42 + disciple.aptitude.khiVan * 0.25 + disciple.realmIndex * 2.8);
+  let hp = Math.round(
+    (460 + disciple.aptitude.cotCan * 6.5) * stage.statMult * qualityTalents.statMult,
+  );
+  let atk = Math.round(
+    (78 + disciple.aptitude.ngoTinh * 1.35) * stage.statMult * qualityTalents.statMult,
+  );
+  let def = Math.round(
+    (34 + disciple.aptitude.cotCan * 0.72) * stage.statMult * qualityTalents.statMult,
+  );
+  let spd = Math.round(
+    42 + disciple.aptitude.khiVan * 0.25 + disciple.realmIndex * 2.8 + tamPhap.spdBonus,
+  );
   let crit = 10 + Math.round(disciple.aptitude.khiVan * 0.14);
   let critDmg = 150;
   let elemBonus = rootMeta.elemDmgBonus + (tangKinhLevel - 1) * 4;
+
+  // Permanent Tẩy Tủy Alchemy stats + Bản Mệnh Pháp Bảo stats
+  hp += (growth.alchemy.tayTuyCounts.hp || 0) + artStats.hp;
+  atk += (growth.alchemy.tayTuyCounts.atk || 0) + artStats.atk;
+  def += (growth.alchemy.tayTuyCounts.def || 0) + artStats.def;
 
   const setCounts: Record<string, number> = {};
 
@@ -328,10 +374,12 @@ export function computeDiscipleStats(
     }
   });
 
-  // Apply Equipment Set Bonuses
-  let atkPct = alliance ? alliance.tech.atkLevel * 4 : 0;
+  // Apply Equipment Set Bonuses & Cultivation Art % Bonuses
+  let atkPct =
+    (alliance ? alliance.tech.atkLevel * 4 : 0) +
+    (growth.natalArtifact.type === 'luyen_dan_dinh' ? growth.natalArtifact.refineLevel * 4 : 0);
   let hpPct = 0;
-  let defPct = 0;
+  let defPct = tamPhap.defPctBonus;
 
   const activeSets: { setId: string; name: string; count: number }[] = [];
   Object.entries(setCounts).forEach(([setId, count]) => {
@@ -368,9 +416,46 @@ export function computeDiscipleStats(
   hp = Math.round(hp * (1 + hpPct / 100));
   def = Math.round(def * (1 + defPct / 100));
 
-  const power = Math.round(hp * 0.45 + atk * 4.2 + def * 3.1 + spd * 6.5 + crit * 24 + elemBonus * 18);
+  const combatMods: DiscipleCombatMods = {
+    comboCritBonus: rootCombat.comboCritBonus,
+    armorPenBonus: rootCombat.armorPenBonus + thanThong.armorBreakPct + artStats.armorPenPct,
+    ultMpDiscount: rootCombat.ultMpDiscount,
+    comboDmgBonus: rootCombat.comboDmgBonus + qualityTalents.comboDmgBonus,
+    mpRegenPerTurn: tamPhap.mpRegenPerTurn,
+    counterChance: tamPhap.counterChance + artStats.counterPct,
+    skillDmgPct: thanThong.skillDmgPct,
+    splashTargetPct: thanThong.splashTargetPct,
+    multiStrikeChance: thanThong.multiStrikeChance,
+    lifestealPct: artStats.lifestealPct,
+    startShieldPct: artStats.startShieldPct,
+    bossDmgPct: artStats.bossDmgPct,
+    startMp: Math.min(100, Math.max(25, qualityTalents.startMpMin) + artStats.startMpBonus),
+    deathImmunity: qualityTalents.deathImmunity,
+  };
 
-  return { hp, atk, def, spd, crit: Math.min(85, crit), critDmg, elemBonus, power, activeSets };
+  const growthPowerBonus =
+    thanThong.skillDmgPct * 18 +
+    combatMods.comboDmgBonus * 14 +
+    combatMods.counterChance * 12 +
+    combatMods.bossDmgPct * 14 +
+    (combatMods.deathImmunity ? 1800 : 0);
+
+  const power = Math.round(
+    hp * 0.45 + atk * 4.2 + def * 3.1 + spd * 6.5 + crit * 24 + elemBonus * 18 + growthPowerBonus,
+  );
+
+  return {
+    hp,
+    atk,
+    def,
+    spd,
+    crit: Math.min(90, crit),
+    critDmg,
+    elemBonus,
+    power,
+    activeSets,
+    combatMods,
+  };
 }
 
 export function getVipLevel(points: number): number {
@@ -424,8 +509,9 @@ export function generateMythicSetBundle(
 
 export function computeTotalSectPower(state: GameState): number {
   const tangKinhLvl = state.buildings.tang_kinh_cac.level;
+  const forgeLvl = state.buildings.luyen_khi_cac.level;
   return state.disciples.reduce((sum, d) => {
-    const stats = computeDiscipleStats(d, state.inventory, state.alliance, tangKinhLvl);
+    const stats = computeDiscipleStats(d, state.inventory, state.alliance, tangKinhLvl, forgeLvl);
     return sum + (d.inFormation ? stats.power : Math.round(stats.power * 0.45));
   }, 0);
 }

@@ -853,12 +853,18 @@ export function SpiritRootSeal({
         : size === 'lg'
           ? 'w-12 h-12'
           : 'w-10 h-10';
+  const spriteKey = grade === 'hon_don_linh_can' ? 'thien_linh_can' : grade;
   return (
     <img
-      src={`./assets/sprites/roots/${grade}.png`}
+      src={`./assets/sprites/roots/${spriteKey}.png`}
       alt={meta?.name || grade}
       title={meta ? `${meta.name} (${meta.tierLabel})` : grade}
       draggable={false}
+      style={
+        grade === 'hon_don_linh_can'
+          ? { filter: 'drop-shadow(0 0 6px #F59E0B) saturate(1.4) brightness(1.08)' }
+          : undefined
+      }
       className={`${dim} object-contain shrink-0 select-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] ${className}`}
     />
   );
