@@ -58,10 +58,13 @@ export const AMBIENT_ANCHORS = {
   },
 } as const;
 
+export type SectSeason = 'xuan' | 'ha' | 'thu' | 'dong';
+
 interface SectAmbientVFXProps {
   /** 'world' renders localized building/waterfall/cloud/bird VFX locked to map coordinates;
-   *  'foreground' renders god rays, drifting autumn leaves & sun motes in front with stronger parallax. */
+   *  'foreground' renders god rays, drifting seasonal petals/leaves/snow & sun motes in front with stronger parallax. */
   layer: 'world' | 'foreground';
+  season?: SectSeason;
   className?: string;
 }
 
@@ -176,7 +179,14 @@ interface DustMote {
   alpha: number;
 }
 
-const LEAF_COLORS = ['#D94826', '#E86A2C', '#F29F38', '#C8372D', '#EA7E2E'];
+const SEASON_COLORS: Record<SectSeason, string[]> = {
+  xuan: ['#FDA4AF', '#FBCFE8', '#F472B6', '#FECDD3', '#F9A8D4'],
+  ha: ['#4ADE80', '#22C55E', '#86EFAC', '#16A34A', '#65A30D'],
+  thu: ['#D94826', '#E86A2C', '#F29F38', '#C8372D', '#EA7E2E'],
+  dong: ['#FFFFFF', '#E0F2FE', '#F0F9FF', '#BAE6FD', '#FFFFFF'],
+};
+
+const LEAF_COLORS = SEASON_COLORS.thu;
 
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
@@ -195,8 +205,56 @@ function drawMapleLeaf(ctx: CanvasRenderingContext2D, size: number, color: strin
   ctx.fill();
 }
 
-export const SectAmbientVFX: React.FC<SectAmbientVFXProps> = ({ layer, className = '' }) => {
+function drawBlossomPetal(ctx: CanvasRenderingContext2D, size: number, color: string) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, -size * 0.95);
+  ctx.bezierCurveTo(size * 0.75, -size * 0.65, size * 0.72, size * 0.45, 0, size * 0.85);
+  ctx.bezierCurveTo(-size * 0.72, size * 0.45, -size * 0.75, -size * 0.65, 0, -size * 0.95);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawSummerLeaf(ctx: CanvasRenderingContext2D, size: number, color: string) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.quadraticCurveTo(size * 0.68, -size * 0.15, 0, size * 0.9);
+  ctx.quadraticCurveTo(-size * 0.68, -size * 0.15, 0, -size);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawSnowflake(ctx: CanvasRenderingContext2D, size: number, color: string, isNear: boolean) {
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.15);
+  grad.addColorStop(0, color);
+  grad.addColorStop(0.55, 'rgba(235, 248, 255, 0.75)');
+  grad.addColorStop(1, 'rgba(235, 248, 255, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 1.15, 0, Math.PI * 2);
+  ctx.fill();
+  if (isNear) {
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.82)';
+    ctx.lineWidth = Math.max(0.8, size * 0.16);
+    for (let i = 0; i < 3; i += 1) {
+      const a = (i * Math.PI) / 3;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * size * 0.72, Math.sin(a) * size * 0.72);
+      ctx.lineTo(-Math.cos(a) * size * 0.72, -Math.sin(a) * size * 0.72);
+      ctx.stroke();
+    }
+  }
+}
+
+export const SectAmbientVFX: React.FC<SectAmbientVFXProps> = ({
+  layer,
+  season = 'thu',
+  className = '',
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const seasonRef = useRef<SectSeason>(season);
+  seasonRef.current = season;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -575,8 +633,9 @@ export const SectAmbientVFX: React.FC<SectAmbientVFXProps> = ({ layer, className
         ctx.restore();
       } else {
         // ====================================================================
-        // FOREGROUND ATMOSPHERE LAYER: God Rays + Maple Leaves + Sun Dust
+        // FOREGROUND ATMOSPHERE LAYER: God Rays + Seasonal Particles + Sun Dust
         // ====================================================================
+        const curSeason = seasonRef.current;
 
         // 1. DIAGONAL GOD RAYS (upper-left, screen/lighter, slow 7s pulse 0.06..0.13)
         ctx.save();
@@ -584,6 +643,14 @@ export const SectAmbientVFX: React.FC<SectAmbientVFXProps> = ({ layer, className
         const rayPulse = 0.06 + 0.07 * (0.5 + 0.5 * Math.sin((t * Math.PI * 2) / 7));
         const ox = AMBIENT_ANCHORS.godRays.originX * cw;
         const oy = AMBIENT_ANCHORS.godRays.originY * ch;
+        const rayRgb =
+          curSeason === 'dong'
+            ? '212, 236, 255'
+            : curSeason === 'xuan'
+              ? '255, 236, 214'
+              : curSeason === 'ha'
+                ? '255, 245, 196'
+                : '255, 232, 168';
         const raySpecs = [
           { angle: 0.44, spread: 0.13, len: 1.15, mult: 1.0 },
           { angle: 0.66, spread: 0.16, len: 1.25, mult: 0.85 },
@@ -596,9 +663,9 @@ export const SectAmbientVFX: React.FC<SectAmbientVFXProps> = ({ layer, className
           const x2 = ox + Math.cos(r.angle + r.spread * 0.5) * length;
           const y2 = oy + Math.sin(r.angle + r.spread * 0.5) * length;
           const grad = ctx.createLinearGradient(ox, oy, (x1 + x2) * 0.5, (y1 + y2) * 0.5);
-          grad.addColorStop(0, `rgba(255, 232, 168, ${rayPulse * r.mult})`);
-          grad.addColorStop(0.55, `rgba(255, 222, 142, ${rayPulse * r.mult * 0.48})`);
-          grad.addColorStop(1, 'rgba(255, 215, 128, 0)');
+          grad.addColorStop(0, `rgba(${rayRgb}, ${rayPulse * r.mult})`);
+          grad.addColorStop(0.55, `rgba(${rayRgb}, ${rayPulse * r.mult * 0.48})`);
+          grad.addColorStop(1, `rgba(${rayRgb}, 0)`);
           ctx.fillStyle = grad;
           ctx.beginPath();
           ctx.moveTo(ox, oy);
@@ -609,6 +676,7 @@ export const SectAmbientVFX: React.FC<SectAmbientVFXProps> = ({ layer, className
         }
 
         // 2. SUN DUST MOTES (~20 soft luminous specks)
+        const dustRgb = curSeason === 'dong' ? '230, 245, 255' : '255, 244, 204';
         for (const d of dustMotes) {
           d.xFrac += d.vx * dt;
           d.yFrac += d.vy * dt;
@@ -623,17 +691,19 @@ export const SectAmbientVFX: React.FC<SectAmbientVFXProps> = ({ layer, className
           const dx = d.xFrac * cw;
           const dy = d.yFrac * ch;
           const r = d.size * unitScale;
-          ctx.fillStyle = `rgba(255, 244, 204, ${d.alpha * twinkle})`;
+          ctx.fillStyle = `rgba(${dustRgb}, ${d.alpha * twinkle})`;
           ctx.beginPath();
           ctx.arc(dx, dy, r, 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.restore();
 
-        // 3. AUTUMN MAPLE LEAVES (16 leaves, 2 depth layers, 3D flutter tumble)
-        for (const lfItem of leaves) {
-          lfItem.xFrac += lfItem.vx * dt;
-          lfItem.yFrac += lfItem.vy * dt;
+        // 3. SEASONAL FALLING PARTICLES (Spring petals / Summer leaves / Autumn maple / Winter snow)
+        const palette = SEASON_COLORS[curSeason];
+        const speedScale = curSeason === 'dong' ? 0.68 : curSeason === 'xuan' ? 0.85 : 1.0;
+        leaves.forEach((lfItem, idx) => {
+          lfItem.xFrac += lfItem.vx * speedScale * dt;
+          lfItem.yFrac += lfItem.vy * speedScale * dt;
           lfItem.rot += lfItem.vRot * dt;
           if (lfItem.yFrac > 1.05 || lfItem.xFrac > 1.08) {
             if (Math.random() < 0.65) {
@@ -647,16 +717,29 @@ export const SectAmbientVFX: React.FC<SectAmbientVFXProps> = ({ layer, className
           const sway = Math.sin(t * lfItem.swayFreq + lfItem.swayPhase) * lfItem.swayAmp;
           const lx = (lfItem.xFrac + sway) * cw;
           const ly = lfItem.yFrac * ch;
-          const flipX = 0.28 + 0.72 * Math.abs(Math.cos(t * lfItem.flipSpeed + lfItem.flipPhase));
+          const flipX =
+            curSeason === 'dong'
+              ? 1
+              : 0.28 + 0.72 * Math.abs(Math.cos(t * lfItem.flipSpeed + lfItem.flipPhase));
+          const col = palette[idx % palette.length];
 
           ctx.save();
           ctx.translate(lx, ly);
           ctx.rotate(lfItem.rot);
           ctx.scale(flipX, 1);
           ctx.globalAlpha = lfItem.alpha;
-          drawMapleLeaf(ctx, lfItem.size * unitScale, lfItem.color);
+          const sz = lfItem.size * unitScale;
+          if (curSeason === 'xuan') {
+            drawBlossomPetal(ctx, sz * 0.95, col);
+          } else if (curSeason === 'ha') {
+            drawSummerLeaf(ctx, sz * 0.92, col);
+          } else if (curSeason === 'dong') {
+            drawSnowflake(ctx, sz * 0.85, col, lfItem.isNear);
+          } else {
+            drawMapleLeaf(ctx, sz, col);
+          }
           ctx.restore();
-        }
+        });
       }
 
       ctx.restore();

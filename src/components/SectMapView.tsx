@@ -17,7 +17,15 @@ import {
 import { getVfxRingPreset } from '../data/vfxRings';
 import { getVfxAuraIndexForRealm } from '../data/vfxAuras';
 import { CharacterAuraVFX } from './CharacterAuraVFX';
-import { SectAmbientVFX } from './SectAmbientVFX';
+import { SectAmbientVFX, SectSeason } from './SectAmbientVFX';
+
+const SECT_SEASON_STORAGE_KEY = 'thanh_van_sect_season';
+const SECT_SEASONS: Array<{ id: SectSeason; label: string; icon: string; bgUrl: string }> = [
+  { id: 'xuan', label: 'Xuân', icon: '🌸', bgUrl: './assets/aistudio/sect_xuan.png' },
+  { id: 'ha', label: 'Hạ', icon: '☀', bgUrl: './assets/aistudio/sect_ha.png' },
+  { id: 'thu', label: 'Thu', icon: '🍁', bgUrl: './assets/aistudio/1_80f8120e.png' },
+  { id: 'dong', label: 'Đông', icon: '❄', bgUrl: './assets/aistudio/sect_dong.png' },
+];
 import {
   ASSET_OVERRIDES_EVENT,
   GlobalMapTuning,
@@ -1791,6 +1799,25 @@ export function SectMapView({
     return () => window.cancelAnimationFrame(rafId);
   }, []);
 
+  const [season, setSeason] = useState<SectSeason>(() => {
+    try {
+      const saved = window.localStorage.getItem(SECT_SEASON_STORAGE_KEY);
+      if (saved === 'xuan' || saved === 'ha' || saved === 'thu' || saved === 'dong') return saved;
+    } catch {
+      // Ignore storage access errors
+    }
+    return 'thu';
+  });
+  const handleSelectSeason = (next: SectSeason) => {
+    setSeason(next);
+    try {
+      window.localStorage.setItem(SECT_SEASON_STORAGE_KEY, next);
+    } catch {
+      // Ignore storage write errors
+    }
+  };
+  const activeSeasonMeta = SECT_SEASONS.find((s) => s.id === season) || SECT_SEASONS[2];
+
   const stageParallaxRef = useRef<HTMLDivElement | null>(null);
   const fgAmbientRef = useRef<HTMLDivElement | null>(null);
 
@@ -1868,10 +1895,10 @@ export function SectMapView({
           willChange: 'transform',
         }}
       >
-        {/* Clean 16:9 Isometric Sect Panorama (bottom 6.8% baked-in border cropped cleanly) */}
+        {/* Clean 16:9 Isometric Sect Panorama (4 Seasons: Xuân · Hạ · Thu · Đông, bottom 6.8% border cropped cleanly) */}
         <img
-          src="./assets/aistudio/1_80f8120e.png"
-          alt="Bản đồ Sơn Môn Thanh Vân Tiên Tông"
+          src={activeSeasonMeta.bgUrl}
+          alt={`Bản đồ Sơn Môn Thanh Vân Tiên Tông — Mùa ${activeSeasonMeta.label}`}
           draggable={false}
           className="absolute inset-0 w-full h-full object-fill pointer-events-none"
           style={{
@@ -1881,7 +1908,7 @@ export function SectMapView({
         />
 
         {/* Localized Procedural Ambient VFX (Waterfall, Forge Smoke & Glow, Herb Fireflies, Valley Mist, Birds) */}
-        <SectAmbientVFX layer="world" className="z-[55]" />
+        <SectAmbientVFX layer="world" season={season} className="z-[55]" />
 
         {/* Floating ambient golden & jade spirit qi motes (locked to landmarks) */}
         <div className="pointer-events-none absolute inset-0 z-[50]">
@@ -1906,24 +1933,25 @@ export function SectMapView({
           ))}
         </div>
 
-        {/* Layer 3: Y-Sorted Foreground Maple Tree Occluders (disciples walk naturally behind canopies & fly above them!) */}
-        {MAP_OCCLUDERS.map((occ) => (
-          <img
-            key={occ.id}
-            src={occ.src}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className="pointer-events-none absolute object-fill select-none"
-            style={{
-              left: `${occ.leftPct}%`,
-              top: `${occ.topPct}%`,
-              width: `${occ.widthPct}%`,
-              height: `${occ.heightPct}%`,
-              zIndex: occ.fixedZ ?? Math.round(100 + occ.baseY * 10),
-            }}
-          />
-        ))}
+        {/* Layer 3: Y-Sorted Foreground Maple Tree Occluders (only for Autumn map so Spring/Summer/Winter trees stay clean) */}
+        {season === 'thu' &&
+          MAP_OCCLUDERS.map((occ) => (
+            <img
+              key={occ.id}
+              src={occ.src}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              className="pointer-events-none absolute object-fill select-none"
+              style={{
+                left: `${occ.leftPct}%`,
+                top: `${occ.topPct}%`,
+                width: `${occ.widthPct}%`,
+                height: `${occ.heightPct}%`,
+                zIndex: occ.fixedZ ?? Math.round(100 + occ.baseY * 10),
+              }}
+            />
+          ))}
 
         {/* Ground VFX Layer (z-[60]): Drawn UNDERNEATH disciples so magic rings sit beneath feet without covering legs */}
         <canvas
@@ -2137,16 +2165,16 @@ export function SectMapView({
       {/* Soft atmospheric vignette for HUD readability */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0E1E1D]/35 via-transparent to-[#0E1E1D]/45" />
 
-      {/* Foreground Ambient Atmosphere (God Rays, 2-Depth Autumn Maple Leaves & Sun Dust Motes with ±8px Parallax) */}
+      {/* Foreground Ambient Atmosphere (God Rays, 4-Season Petals/Leaves/Snow & Sun Dust Motes with ±8px Parallax) */}
       <div
         ref={fgAmbientRef}
         className="pointer-events-none absolute -inset-3 z-[12]"
         style={{ willChange: 'transform' }}
       >
-        <SectAmbientVFX layer="foreground" />
+        <SectAmbientVFX layer="foreground" season={season} />
       </div>
 
-      {/* Compact Camera Zoom Controls (positioned cleanly along bottom-left utility strip) */}
+      {/* Compact Camera Zoom & 4-Season Controls (positioned cleanly along bottom-left utility strip) */}
       <div
         data-camera-control="true"
         className="absolute bottom-2 left-[116px] lg:bottom-3 lg:left-[126px] z-20 flex items-center gap-0.5 rounded-lg bg-[#152826]/92 border border-[#C9A45C]/70 px-1 py-0.5 text-[#F6EBD0] shadow-lg backdrop-blur-xs"
@@ -2201,6 +2229,30 @@ export function SectMapView({
         >
           {showBuildingLabels ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
         </button>
+
+        {/* 4-Season Switcher (Xuân · Hạ · Thu · Đông) */}
+        <div className="flex items-center gap-0.5 border-l border-[#C9A45C]/35 ml-0.5 pl-1">
+          {SECT_SEASONS.map((s) => {
+            const active = season === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => handleSelectSeason(s.id)}
+                title={`Chuyển cảnh Tông Môn sang Mùa ${s.label}`}
+                aria-label={`Mùa ${s.label}`}
+                className={`px-1.5 h-6 rounded text-[10px] font-bold flex items-center gap-0.5 cursor-pointer transition-colors ${
+                  active
+                    ? 'bg-[#C9A45C] text-[#152826] shadow-xs'
+                    : 'text-[#DCE9E2] hover:bg-[#23423F]'
+                }`}
+              >
+                <span className="text-[11px] leading-none">{s.icon}</span>
+                <span className="hidden sm:inline">{s.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
