@@ -17,6 +17,7 @@ import {
 import { getVfxRingPreset } from '../data/vfxRings';
 import { getVfxAuraIndexForRealm } from '../data/vfxAuras';
 import { CharacterAuraVFX } from './CharacterAuraVFX';
+import { SectAmbientVFX } from './SectAmbientVFX';
 import {
   ASSET_OVERRIDES_EVENT,
   GlobalMapTuning,
@@ -1790,6 +1791,52 @@ export function SectMapView({
     return () => window.cancelAnimationFrame(rafId);
   }, []);
 
+  const stageParallaxRef = useRef<HTMLDivElement | null>(null);
+  const fgAmbientRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let targetX = 0;
+    let targetY = 0;
+    let curX = 0;
+    let curY = 0;
+    let rafId = 0;
+
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      targetX = Math.max(-1, Math.min(1, ((e.clientX - rect.left) / rect.width) * 2 - 1));
+      targetY = Math.max(-1, Math.min(1, ((e.clientY - rect.top) / rect.height) * 2 - 1));
+    };
+    const onLeave = () => {
+      targetX = 0;
+      targetY = 0;
+    };
+
+    const tick = () => {
+      curX += (targetX - curX) * 0.06;
+      curY += (targetY - curY) * 0.06;
+      if (stageParallaxRef.current) {
+        stageParallaxRef.current.style.transform = `translate3d(${(-curX * 4).toFixed(2)}px, ${(-curY * 4).toFixed(2)}px, 0) scale(1.02)`;
+      }
+      if (fgAmbientRef.current) {
+        fgAmbientRef.current.style.transform = `translate3d(${(-curX * 8).toFixed(2)}px, ${(-curY * 8).toFixed(2)}px, 0)`;
+      }
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    el.addEventListener('pointermove', onMove, { passive: true });
+    el.addEventListener('pointerleave', onLeave, { passive: true });
+    rafId = window.requestAnimationFrame(tick);
+    return () => {
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerleave', onLeave);
+      window.cancelAnimationFrame(rafId);
+    };
+  }, []);
+
   const canPan = stageW > base.cw + 2 || stageH * MAP_VISIBLE_H_RATIO > base.ch + 2;
   const isModifiedCamera = zoom > MIN_ZOOM + 0.01 || camPos !== null;
   // Scale disciples & building labels proportionally when the full sect is zoomed out on narrow mobile screens
@@ -1810,12 +1857,15 @@ export function SectMapView({
     >
       {/* Aspect-locked stage: background art + occluders + VFX canvas + buildings + disciples share 100% identical coordinates */}
       <div
+        ref={stageParallaxRef}
         className={`absolute z-0 isolate ${isSmoothZoom ? 'transition-[left,top,width,height] duration-200 ease-out' : ''}`}
         style={{
           width: `${stageW}px`,
           height: `${stageH}px`,
           left: `${resolvedPos.left}px`,
           top: `${resolvedPos.top}px`,
+          transform: 'translate3d(0px, 0px, 0) scale(1.02)',
+          willChange: 'transform',
         }}
       >
         {/* Clean 16:9 Isometric Sect Panorama (bottom 6.8% baked-in border cropped cleanly) */}
@@ -1829,6 +1879,9 @@ export function SectMapView({
             filter: `brightness(${mapTuning.mapBrightness.toFixed(2)}) contrast(${mapTuning.mapContrast.toFixed(2)}) saturate(${mapTuning.mapSaturate.toFixed(2)})`,
           }}
         />
+
+        {/* Localized Procedural Ambient VFX (Waterfall, Forge Smoke & Glow, Herb Fireflies, Valley Mist, Birds) */}
+        <SectAmbientVFX layer="world" className="z-[55]" />
 
         {/* Floating ambient golden & jade spirit qi motes (locked to landmarks) */}
         <div className="pointer-events-none absolute inset-0 z-[50]">
@@ -2084,10 +2137,13 @@ export function SectMapView({
       {/* Soft atmospheric vignette for HUD readability */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0E1E1D]/35 via-transparent to-[#0E1E1D]/45" />
 
-      {/* Drifting autumn mist clouds */}
-      <div className="pointer-events-none absolute inset-x-0 top-12 h-32 opacity-30 animate-cloud-drift">
-        <div className="w-72 h-20 rounded-full bg-[#FFF4DC]/50 blur-2xl absolute left-[12%] top-2" />
-        <div className="w-96 h-24 rounded-full bg-[#FDECC8]/40 blur-3xl absolute right-[10%] top-6" />
+      {/* Foreground Ambient Atmosphere (God Rays, 2-Depth Autumn Maple Leaves & Sun Dust Motes with ±8px Parallax) */}
+      <div
+        ref={fgAmbientRef}
+        className="pointer-events-none absolute -inset-3 z-[12]"
+        style={{ willChange: 'transform' }}
+      >
+        <SectAmbientVFX layer="foreground" />
       </div>
 
       {/* Compact Camera Zoom Controls (positioned cleanly along bottom-left utility strip) */}
