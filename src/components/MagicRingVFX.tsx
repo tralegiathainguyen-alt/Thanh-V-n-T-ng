@@ -292,7 +292,7 @@ export const MagicRingVFX: React.FC<MagicRingVFXProps> = ({
     const ctx2d = !gl ? ringCanvas.getContext('2d') : null;
     const pCtx = pCanvas.getContext('2d');
 
-    const img = getRingImage(preset.additiveUrl);
+    const img = getRingImage(gl ? preset.additiveUrl : preset.transparentUrl);
     let texUploaded = false;
 
     const uploadIfReady = () => {

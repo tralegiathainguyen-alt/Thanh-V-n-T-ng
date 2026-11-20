@@ -642,11 +642,11 @@ export function DisciplePortrait({
                 }}
               />
               <img
-                src={ringPreset.additiveUrl}
+                src={ringPreset.transparentUrl}
                 alt=""
                 aria-hidden="true"
                 draggable={false}
-                className="absolute inset-x-0 -bottom-2 w-full aspect-square object-contain pointer-events-none mix-blend-screen opacity-90 animate-spin"
+                className="absolute inset-x-0 -bottom-2 w-full aspect-square object-contain pointer-events-none opacity-95 animate-spin"
                 style={{
                   transform: 'scaleY(0.42)',
                   animationDuration: `${Math.max(4, Math.round(14 / Math.max(0.35, ringPreset.defaultSpeed)))}s`,

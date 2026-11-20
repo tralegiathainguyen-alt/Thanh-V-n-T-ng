@@ -23,7 +23,7 @@ function getSectVfxRingImage(ringId: number): HTMLImageElement | null {
   if (!img) {
     const preset = getVfxRingPreset(ringId);
     img = new Image();
-    img.src = preset.additiveUrl;
+    img.src = preset.transparentUrl;
     sectVfxRingCache.set(ringId, img);
   }
   return img;
@@ -1403,25 +1403,26 @@ export function SectMapView({
             ctx.fill();
 
             if (ringImg && ringImg.complete && ringImg.naturalWidth > 0) {
-              const drawD = aura.ringRadius * 2.45;
-              // Secondary counter-rotating aura layer (1.12x scale, softer opacity)
+              const drawD = aura.ringRadius * 2.05;
+              // Secondary counter-rotating aura layer (1.12x scale, additive glow)
               ctx.save();
               ctx.rotate(auraAngle);
-              ctx.globalAlpha = Math.min(0.75, (0.36 + aura.tier * 0.04) * flicker);
+              ctx.globalCompositeOperation = 'lighter';
+              ctx.globalAlpha = Math.min(0.65, (0.34 + aura.tier * 0.04) * flicker);
               const auraD = drawD * auraScale;
               ctx.drawImage(ringImg, -auraD / 2, -auraD / 2, auraD, auraD);
               ctx.restore();
 
-              // Primary additive VFX ring layer
+              // Primary crisp transparent VFX ring layer
               ctx.save();
               ctx.rotate(mainAngle);
-              ctx.globalAlpha = Math.min(1, (0.76 + aura.tier * 0.03) * flicker);
+              ctx.globalCompositeOperation = 'source-over';
+              ctx.globalAlpha = Math.min(0.96, (0.78 + aura.tier * 0.025) * flicker);
               ctx.drawImage(ringImg, -drawD / 2, -drawD / 2, drawD, drawD);
-              // HDR bloom double pass for higher realms (Kim Đan+)
-              if (aura.tier >= 2) {
-                ctx.globalAlpha = Math.min(0.7, (0.22 + aura.tier * 0.05) * flicker);
-                ctx.drawImage(ringImg, -drawD * 0.53, -drawD * 0.53, drawD * 1.06, drawD * 1.06);
-              }
+              // Additive HDR bloom pass on top for glowing radiance
+              ctx.globalCompositeOperation = 'lighter';
+              ctx.globalAlpha = Math.min(0.75, (0.28 + aura.tier * 0.055) * flicker);
+              ctx.drawImage(ringImg, -drawD * 0.525, -drawD * 0.525, drawD * 1.05, drawD * 1.05);
               ctx.restore();
             } else {
               // Brief fallback while sprite loads
