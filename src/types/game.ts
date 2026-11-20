@@ -266,7 +266,8 @@ export type ActiveModal =
   | 'alliance'
   | 'offline'
   | 'gifts'
-  | 'vip';
+  | 'vip'
+  | 'account';
 
 export interface CombatContext {
   mode: 'realm' | 'boss' | 'vein';

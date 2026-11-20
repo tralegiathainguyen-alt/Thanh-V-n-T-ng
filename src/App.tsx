@@ -56,7 +56,17 @@ import { WorldRealmModal } from './components/WorldRealmModal';
 import { AllianceMarketModal } from './components/AllianceMarketModal';
 import { OfflineIdleModal } from './components/OfflineIdleModal';
 import { VipModal } from './components/VipModal';
+import { AuthScreen } from './components/AuthScreen';
+import { AccountModal } from './components/AccountModal';
 import { DisciplePortrait, ResourceIcon } from './components/ElementIcons';
+import {
+  UserAccount,
+  requestPersistentStorage,
+  restoreActiveSession,
+  saveActiveSession,
+  saveGameForUser,
+  saveGameSyncMirror,
+} from './utils/storage';
 import {
   ArrowUpCircle,
   Bot,
@@ -73,44 +83,79 @@ import {
   ScrollText,
   Send,
   Shield,
+  ShieldCheck,
   ShoppingBag,
   Skull,
   Sparkles,
   Swords,
   Trophy,
+  User,
   Users,
   Volume2,
   VolumeX,
 } from 'lucide-react';
 
-const SAVE_KEY = 'thanh_van_tien_tong_save_v1';
+export default function App() {
+  const [booting, setBooting] = useState(true);
+  const [session, setSession] = useState<{ account: UserAccount; state: GameState } | null>(null);
 
-function loadGameState(): GameState {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return createInitialGameState();
-    const parsed = JSON.parse(raw) as GameState;
-    if (!parsed || !parsed.disciples || !parsed.buildings) {
-      return createInitialGameState();
-    }
-    const now = Date.now();
-    const offlineSec = Math.max(0, Math.floor((now - (parsed.lastActiveAt || now)) / 1000));
-    return {
-      ...parsed,
-      vip: {
-        ...createDefaultVipState(),
-        ...(parsed.vip || {}),
-      },
-      lastActiveAt: now,
-      pendingOfflineSeconds: Math.min(12 * 3600, (parsed.pendingOfflineSeconds || 0) + offlineSec),
+  useEffect(() => {
+    let active = true;
+    restoreActiveSession()
+      .then((restored) => {
+        if (active && restored) {
+          setSession(restored);
+        }
+      })
+      .finally(() => {
+        if (active) setBooting(false);
+      });
+    return () => {
+      active = false;
     };
-  } catch {
-    return createInitialGameState();
+  }, []);
+
+  if (booting) {
+    return (
+      <div className="min-h-screen w-full bg-[#0E1C1B] flex flex-col items-center justify-center text-[#FCE6A6] gap-3">
+        <Sparkles className="w-8 h-8 animate-spin text-[#D4A24C]" />
+        <div className="text-sm font-semibold tracking-wide">Đang khôi phục linh mạch &amp; dữ liệu tông môn...</div>
+      </div>
+    );
   }
+
+  if (!session) {
+    return (
+      <AuthScreen
+        onAuthenticated={(account, loadedState) => {
+          setSession({ account, state: loadedState });
+        }}
+      />
+    );
+  }
+
+  return (
+    <GameSession
+      key={session.account.username}
+      account={session.account}
+      initialState={session.state}
+      onLogout={() => {
+        saveActiveSession(null);
+        setSession(null);
+      }}
+    />
+  );
 }
 
-export default function App() {
-  const [state, setState] = useState<GameState>(loadGameState);
+interface GameSessionProps {
+  account: UserAccount;
+  initialState: GameState;
+  onLogout: () => void;
+}
+
+function GameSession({ account, initialState, onLogout }: GameSessionProps) {
+  const [state, setState] = useState<GameState>(initialState);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(Date.now());
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<BuildingId | null>(null);
   const [selectedEquipDiscipleId, setSelectedEquipDiscipleId] = useState<string | null>(null);
@@ -127,6 +172,8 @@ export default function App() {
   const [showRightMenu, setShowRightMenu] = useState(false);
 
   const toastTimer = useRef<number | null>(null);
+  const latestStateRef = useRef<GameState>(state);
+  latestStateRef.current = state;
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -134,19 +181,87 @@ export default function App() {
     toastTimer.current = window.setTimeout(() => setToast(null), 2800);
   };
 
+  // Request browser persistent storage quota on login
+  useEffect(() => {
+    requestPersistentStorage().catch(() => {});
+  }, []);
+
   // Sync sound engine enabled state
   useEffect(() => {
     sfx.enabled = state.soundEnabled;
   }, [state.soundEnabled]);
 
-  // Persist to localStorage automatically
+  // Dual-layer persistent save (IndexedDB + localStorage) debounced every 1.5s
   useEffect(() => {
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-    } catch {
-      // Ignore storage quota errors
-    }
-  }, [state]);
+    const timer = window.setTimeout(() => {
+      saveGameForUser(account.username, latestStateRef.current, { syncCloud: true })
+        .then((res) => setLastSavedAt(res.savedAt))
+        .catch(() => {});
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [state, account.username]);
+
+  // Periodic rolling auto-snapshot every 5 minutes
+  useEffect(() => {
+    const snapTimer = window.setInterval(() => {
+      saveGameForUser(account.username, latestStateRef.current, { createSnapshot: true, syncCloud: true })
+        .then((res) => setLastSavedAt(res.savedAt))
+        .catch(() => {});
+    }, 5 * 60 * 1000);
+    return () => window.clearInterval(snapTimer);
+  }, [account.username]);
+
+  // Immediate flush when closing tab, refreshing, or switching apps
+  useEffect(() => {
+    const flushNow = () => {
+      const current = latestStateRef.current;
+      saveGameSyncMirror(account.username, current);
+      saveGameForUser(account.username, current).catch(() => {});
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        flushNow();
+      }
+    };
+    window.addEventListener('beforeunload', flushNow);
+    window.addEventListener('pagehide', flushNow);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', flushNow);
+      window.removeEventListener('pagehide', flushNow);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [account.username]);
+
+  const handleManualSave = async () => {
+    const res = await saveGameForUser(account.username, latestStateRef.current, {
+      createSnapshot: true,
+      syncCloud: true,
+    });
+    setLastSavedAt(res.savedAt);
+    showToast('Đã lưu dữ liệu an toàn (IndexedDB + LocalStorage + Snapshot)!');
+  };
+
+  const handleRestoreState = async (restored: GameState, sourceLabel: string) => {
+    setState(restored);
+    latestStateRef.current = restored;
+    const res = await saveGameForUser(account.username, restored, {
+      createSnapshot: true,
+      syncCloud: true,
+    });
+    setLastSavedAt(res.savedAt);
+    sfx.upgrade();
+    showToast(`Đã khôi phục dữ liệu từ ${sourceLabel}!`);
+  };
+
+  const handleLogoutSession = async () => {
+    await saveGameForUser(account.username, latestStateRef.current, {
+      createSnapshot: true,
+      syncCloud: true,
+    });
+    onLogout();
+  };
+
 
   // Real-time 1-second production, cultivation & stamina tick
   useEffect(() => {
@@ -2103,6 +2218,21 @@ export default function App() {
                 <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
+            <button
+              onClick={() => {
+                sfx.click();
+                setActiveModal('account');
+              }}
+              title="Tài khoản & Sao lưu dữ liệu"
+              aria-label="Tài khoản & Sao lưu dữ liệu"
+              className="flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full bg-[#16302D]/95 hover:bg-[#1F4440] border border-[#D4A24C]/70 text-[#FCE6A6] text-[11px] font-sans font-semibold cursor-pointer shrink-0 shadow transition-colors"
+            >
+              <span className="relative flex items-center justify-center">
+                <User className="w-3.5 h-3.5 text-[#F5D687]" />
+                <ShieldCheck className="w-2.5 h-2.5 text-[#6EE7B7] absolute -bottom-1 -right-1" />
+              </span>
+              <span className="hidden lg:inline max-w-[84px] truncate">{account.displayName}</span>
+            </button>
           </div>
         </div>
 
@@ -2682,6 +2812,18 @@ export default function App() {
           onToggleAutoWorld={handleToggleAutoWorld}
           onSelectAutoWorldBoss={handleSelectAutoWorldBoss}
           onEquipFashion={handleEquipFashion}
+        />
+      )}
+
+      {activeModal === 'account' && (
+        <AccountModal
+          account={account}
+          state={state}
+          lastSavedAt={lastSavedAt}
+          onClose={() => setActiveModal(null)}
+          onManualSave={handleManualSave}
+          onRestoreState={handleRestoreState}
+          onLogout={handleLogoutSession}
         />
       )}
 
