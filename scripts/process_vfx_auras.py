@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """
-Process a 4x4 surrounding body-aura VFX sprite sheet on white background into:
-1. public/assets/vfx_auras/transparent/aura_01.png .. aura_16.png (RGBA transparent)
-2. public/assets/vfx_auras/additive/aura_01.png .. aura_16.png (RGB on pure black for Additive Blending)
+Process a 4x4 vertical body aura VFX sprite sheet on white background into:
+  public/assets/vfx_auras/aura_01.png .. aura_16.png (512x512 RGBA transparent PNGs)
 
-Uses Color-to-Alpha / Unmultiply White + incandescent core preservation + soft border feather
-so swirling body auras have zero white fringe and zero hard square edges.
+Features:
+- Color-to-Alpha / Unmultiply White (alpha = 1 - min(R,G,B)) with zero white/black fringe.
+- Preserves rich dark saturation on dark auras (aura_10 cosmos, aura_11 crimson).
+- Gently boosts alpha contrast on pale auras (aura_01 white mist, aura_02, aura_14, aura_15)
+  so they stay clearly visible on bright daylight maps.
+- Applies a smooth 15% top-edge alpha fade gradient on aura_16 to eliminate top-edge clipping.
 """
 
 from pathlib import Path
@@ -14,76 +17,91 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 
-def build_edge_feather_mask(size: int, margin_frac: float = 0.04) -> np.ndarray:
-    """Smooth feather on all 4 borders so aura ribbons never show a hard rectangular cutoff."""
-    coords = np.linspace(0.0, 1.0, size, dtype=np.float32)
-    edge_dist = np.minimum(coords, 1.0 - coords)
-    t = np.clip(edge_dist / max(margin_frac, 1e-6), 0.0, 1.0)
-    ramp = t * t * (3.0 - 2.0 * t)
-    return np.outer(ramp, ramp)
-
-
 def blur_2d(arr: np.ndarray, radius: float) -> np.ndarray:
     u8 = np.clip(np.round(arr * 255.0), 0, 255).astype(np.uint8)
     blurred = Image.fromarray(u8, mode="L").filter(ImageFilter.GaussianBlur(radius=radius))
     return np.asarray(blurred, dtype=np.float32) / 255.0
 
 
-def unmultiply_white_aura(tile_rgb: np.ndarray, edge_mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def unmultiply_aura(tile_rgb: np.ndarray, aura_id: int) -> np.ndarray:
     rgb = tile_rgb.astype(np.float32) / 255.0
+    h, w, _ = rgb.shape
 
-    # 1. Color-to-Alpha from deviation from pure white
+    # 1. Color-to-Alpha: deviation from pure white
     raw_alpha = 1.0 - np.min(rgb, axis=-1)
 
-    # Remove tiny compression noise (< 1.2%) and boost delicate wisps smoothly
+    # Clean tiny pure-white compression noise
     floor = 0.012
-    base_alpha = np.clip((raw_alpha - floor) / (1.0 - floor), 0.0, 1.0)
-    base_alpha = np.power(base_alpha, 0.78)
+    alpha = np.clip((raw_alpha - floor) / (1.0 - floor), 0.0, 1.0)
 
-    # 2. Unmultiply white background to recover vivid ribbon colors
-    a_exp = base_alpha[..., None]
+    # 2. Per-aura alpha contrast tuning:
+    # - aura_01 (pale white/grey smoke): boost alpha contrast so it pops on daylight map
+    # - aura_14 (bright golden lightning) & aura_15 (pastel rainbow): slight alpha lift
+    # - aura_10 (dark cosmos) & aura_11 (deep crimson): keep crisp & saturated
+    if aura_id == 1:
+        alpha = np.power(alpha, 0.58)
+        alpha = np.clip(alpha * 1.35, 0.0, 1.0)
+    elif aura_id in (2, 5, 14, 15):
+        alpha = np.power(alpha, 0.72)
+        alpha = np.clip(alpha * 1.15, 0.0, 1.0)
+    elif aura_id in (10, 11):
+        alpha = np.power(alpha, 0.88)
+    else:
+        alpha = np.power(alpha, 0.80)
+
+    # 3. Unmultiply white background to restore pure, vivid color without white halo
+    a_exp = alpha[..., None]
     rgb_unmult = np.clip((rgb - (1.0 - a_exp)) / np.maximum(a_exp, 1e-5), 0.0, 1.0)
 
-    # 3. Preserve enclosed white-hot cores (lightning centers, bright ribbon highlights, sparks)
-    tight_surround = blur_2d(base_alpha, radius=4.0)
-    mid_surround = blur_2d(base_alpha, radius=10.0)
+    # 4. Preserve tiny bright starlight/lightning cores enclosed inside colored strokes
+    tight_surround = blur_2d(alpha, radius=4.0)
     luma = 0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]
-    core_mask = np.clip((tight_surround - 0.24) / 0.32, 0.0, 1.0) * np.clip((mid_surround - 0.15) / 0.32, 0.0, 1.0)
-    core_heat = core_mask * np.clip((luma - 0.72) / 0.28, 0.0, 1.0) * (1.0 - base_alpha)
-    core_heat = np.clip(core_heat * 1.4, 0.0, 1.0)
+    core_mask = np.clip((tight_surround - 0.32) / 0.35, 0.0, 1.0)
+    core_heat = core_mask * np.clip((luma - 0.80) / 0.20, 0.0, 1.0) * (1.0 - alpha)
+    core_heat = np.clip(core_heat * 1.2, 0.0, 1.0)
 
-    alpha = np.clip(base_alpha + core_heat, 0.0, 1.0)
-    alpha = np.clip(alpha * edge_mask, 0.0, 1.0)
-
+    alpha = np.clip(alpha + core_heat, 0.0, 1.0)
     core_exp = core_heat[..., None]
-    rgb_out = np.clip(rgb_unmult * (1.0 - core_exp * 0.72) + core_exp * 1.0, 0.0, 1.0)
+    rgb_out = np.clip(rgb_unmult * (1.0 - core_exp * 0.7) + core_exp * 1.0, 0.0, 1.0)
 
-    # For very pale silver/white wisps (like aura_01), lift RGB slightly so they glow cleanly on dark & light maps
+    # For pale silver/white mist (aura_01), tint subtly icy-jade-white so it reads gracefully on warm daylight map
+    if aura_id == 1:
+        rgb_out = np.clip(rgb_out * np.array([0.86, 0.94, 0.98], dtype=np.float32), 0.0, 1.0)
+
+    # 5. Soft edge guard on outer 2% border to prevent any neighbor-cell bleed
+    edge_px = max(2, int(round(w * 0.015)))
+    edge_mask = np.ones((h, w), dtype=np.float32)
+    ramp = np.linspace(0.0, 1.0, edge_px, dtype=np.float32)
+    edge_mask[:edge_px, :] *= ramp[:, None]
+    edge_mask[-edge_px:, :] *= ramp[::-1, None]
+    edge_mask[:, :edge_px] *= ramp[None, :]
+    edge_mask[:, -edge_px:] *= ramp[None, ::-1]
+    alpha *= edge_mask
+
+    # 6. Special 15% top-edge smooth alpha fade gradient for aura_16 (touching top border)
+    if aura_id == 16:
+        fade_rows = int(round(h * 0.15))
+        t = np.linspace(0.0, 1.0, fade_rows, dtype=np.float32)
+        smooth_t = t * t * (3.0 - 2.0 * t)
+        alpha[:fade_rows, :] *= smooth_t[:, None]
+
+    # Zero out RGB where alpha is effectively zero
     a_final = alpha[..., None]
     rgb_out = np.where(a_final > 1e-4, rgb_out, 0.0)
 
     rgba = np.concatenate([rgb_out, a_final], axis=-1)
-    rgba_u8 = np.clip(np.round(rgba * 255.0), 0, 255).astype(np.uint8)
-
-    additive = np.clip(rgb_out * a_final, 0.0, 1.0)
-    additive = np.clip(np.power(additive, 0.88) * 1.15, 0.0, 1.0) * edge_mask[..., None]
-    additive_u8 = np.clip(np.round(additive * 255.0), 0, 255).astype(np.uint8)
-
-    return rgba_u8, additive_u8
+    return np.clip(np.round(rgba * 255.0), 0, 255).astype(np.uint8)
 
 
-def process_grid(src_path: Path, out_root: Path, tile_size: int = 512, preview_path: Path | None = None) -> None:
+def process_aura_grid(src_path: Path, out_dir: Path, tile_size: int = 512, preview_path: Path | None = None) -> None:
     img = Image.open(src_path).convert("RGB")
     w, h = img.size
     print(f"Loaded {src_path} ({w}x{h})")
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    trans_dir = out_root / "transparent"
-    add_dir = out_root / "additive"
-    trans_dir.mkdir(parents=True, exist_ok=True)
-    add_dir.mkdir(parents=True, exist_ok=True)
-
-    edge_mask = build_edge_feather_mask(tile_size, margin_frac=0.04)
-    preview_sheet = Image.new("RGB", (tile_size * 4 // 2, tile_size * 4 // 2), (10, 18, 21))
+    # Preview sheet on warm daytime sect-map stone/sand background (#D8BC8C) to verify daylight visibility!
+    half = tile_size // 2
+    preview_sheet = Image.new("RGBA", (half * 4, half * 4), (216, 188, 140, 255))
 
     idx = 1
     for row in range(4):
@@ -97,28 +115,24 @@ def process_grid(src_path: Path, out_root: Path, tile_size: int = 512, preview_p
             if cell.size != (tile_size, tile_size):
                 cell = cell.resize((tile_size, tile_size), Image.Resampling.LANCZOS)
 
-            rgba_u8, add_u8 = unmultiply_white_aura(np.asarray(cell), edge_mask)
-
+            rgba_u8 = unmultiply_aura(np.asarray(cell), aura_id=idx)
             name = f"aura_{idx:02d}.png"
-            Image.fromarray(rgba_u8, mode="RGBA").save(trans_dir / name, optimize=True)
-            Image.fromarray(add_u8, mode="RGB").save(add_dir / name, optimize=True)
+            out_img = Image.fromarray(rgba_u8, mode="RGBA")
+            out_img.save(out_dir / name, optimize=True)
 
-            half = tile_size // 2
-            add_thumb = Image.fromarray(add_u8, mode="RGB").resize((half, half), Image.Resampling.LANCZOS)
-            bg_patch = np.asarray(
-                preview_sheet.crop((col * half, row * half, (col + 1) * half, (row + 1) * half)),
-                dtype=np.int16,
+            thumb = out_img.resize((half, half), Image.Resampling.LANCZOS)
+            preview_sheet.alpha_composite(thumb, dest=(col * half, row * half))
+
+            print(
+                f"  [{idx:02d}/16] Saved {name} (max_alpha={rgba_u8[..., 3].max()}, "
+                f"top_row_max={rgba_u8[0, :, 3].max()})"
             )
-            comp = np.clip(bg_patch + np.asarray(add_thumb, dtype=np.int16), 0, 255).astype(np.uint8)
-            preview_sheet.paste(Image.fromarray(comp, mode="RGB"), (col * half, row * half))
-
-            print(f"  [{idx:02d}/16] Saved {name} (max_alpha={rgba_u8[..., 3].max()}, edge_max={rgba_u8[0, :, 3].max()})")
             idx += 1
 
     if preview_path is not None:
         preview_path.parent.mkdir(parents=True, exist_ok=True)
-        preview_sheet.save(preview_path, optimize=True)
-        print(f"Saved dark-background verification sheet to {preview_path}")
+        preview_sheet.convert("RGB").save(preview_path, optimize=True)
+        print(f"Saved daylight-map verification sheet to {preview_path}")
 
 
 if __name__ == "__main__":
@@ -127,6 +141,6 @@ if __name__ == "__main__":
     out = repo_root / "public" / "assets" / "vfx_auras"
     preview = Path(
         "/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p/"
-        "e1748774-feea-4c04-b037-5491d0414e3e/scratch/vfx_auras_preview.png"
+        "e1748774-feea-4c04-b037-5491d0414e3e/scratch/vfx_auras_daylight_preview.png"
     )
-    process_grid(src, out, tile_size=512, preview_path=preview)
+    process_aura_grid(src, out, tile_size=512, preview_path=preview)

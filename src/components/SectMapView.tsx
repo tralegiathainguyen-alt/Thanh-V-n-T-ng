@@ -15,6 +15,8 @@ import {
 } from './ElementIcons';
 
 import { getVfxRingPreset } from '../data/vfxRings';
+import { getVfxAuraIndexForRealm } from '../data/vfxAuras';
+import { CharacterAuraVFX } from './CharacterAuraVFX';
 import {
   ASSET_OVERRIDES_EVENT,
   GlobalMapTuning,
@@ -30,19 +32,6 @@ function getSectVfxRingImage(ringId: number): HTMLImageElement | null {
     img = new Image();
     img.src = preset.transparentUrl;
     sectVfxRingCache.set(ringId, img);
-  }
-  return img;
-}
-
-const sectVfxAuraCache = new Map<number, HTMLImageElement>();
-function getSectVfxAuraImage(ringId: number): HTMLImageElement | null {
-  if (typeof Image === 'undefined') return null;
-  let img = sectVfxAuraCache.get(ringId);
-  if (!img) {
-    const preset = getVfxRingPreset(ringId);
-    img = new Image();
-    img.src = preset.auraTransparentUrl;
-    sectVfxAuraCache.set(ringId, img);
   }
   return img;
 }
@@ -1495,41 +1484,6 @@ export function SectMapView({
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
 
-            // Surrounding body-aura ribbons (vfx_auras/aura_01..16) swirling organically around torso
-            const auraEnabled = ringSave?.auraEnabled ?? true;
-            const bodyAuraImg = auraEnabled ? getSectVfxAuraImage(aura.vfxRingId) : null;
-            if (bodyAuraImg && bodyAuraImg.complete && bodyAuraImg.naturalWidth > 0) {
-              const effAuraScale = (ringSave?.auraScale ?? 1) * tuning.discipleScale;
-              const effAuraOffsetY = ringSave?.auraOffsetY ?? 0;
-              const effAuraOpacity = ringSave?.auraOpacity ?? 0.85;
-              const auraSize = (38 + aura.tier * 2.8) * effAuraScale;
-              const waveT = sec * (1.8 + aura.tier * 0.12) * Math.max(0.2, effSpeedMult) + w.phase;
-              const bobY = Math.sin(waveT) * 2.5;
-              const swayX = Math.cos(waveT * 0.85) * 1.4;
-              const breathScaleX = 1 + Math.sin(waveT * 1.1) * 0.06;
-              const breathScaleY = 1 + Math.cos(waveT * 1.3) * 0.05;
-              const tilt =
-                aura.vfxGroup === 'lightning_fire'
-                  ? (Math.sin(Math.floor(sec * 14 + w.phase * 5) * 7.13) * 0.09)
-                  : Math.sin(waveT * 0.7) * 0.07;
-
-              ctx.save();
-              ctx.translate(cx + swayX, cy - 22 + effAuraOffsetY + bobY);
-              ctx.rotate(tilt);
-              ctx.scale(breathScaleX, breathScaleY);
-
-              // Crisp translucent ribbon body
-              ctx.globalCompositeOperation = 'source-over';
-              ctx.globalAlpha = Math.min(0.95, 0.68 * effAuraOpacity * flicker);
-              ctx.drawImage(bodyAuraImg, -auraSize / 2, -auraSize / 2, auraSize, auraSize);
-
-              // Additive HDR glow halo pass
-              ctx.globalCompositeOperation = 'lighter';
-              ctx.globalAlpha = Math.min(0.88, (0.28 + effBloom * 0.2) * effAuraOpacity * flicker);
-              ctx.drawImage(bodyAuraImg, -auraSize * 0.53, -auraSize * 0.53, auraSize * 1.06, auraSize * 1.06);
-              ctx.restore();
-            }
-
             // Orbiting luminous spirit beads (cosmic_orbit / rune_circle / lightning_fire)
             const orbCount =
               effParticleMult <= 0.05
@@ -2031,51 +1985,60 @@ export function SectMapView({
                     transformOrigin: 'bottom center',
                   }}
                 >
-                  {sheetCfg ? (
-                    <div
-                      className="relative w-20 h-20 flex items-center justify-center shrink-0"
-                      style={{
-                        filter: fashion
-                          ? `drop-shadow(0 0 10px ${fashion.glowColor}) drop-shadow(0 4px 5px rgba(0,0,0,0.45))`
-                          : realmAura
-                            ? `drop-shadow(0 0 ${5 + realmAura.tier}px ${realmAura.glowRgba}) drop-shadow(0 4px 5px rgba(0,0,0,0.45))`
-                            : 'drop-shadow(0 4px 5px rgba(0,0,0,0.45))',
-                      }}
-                    >
-                      {fashion && (
-                        <div
-                          className="absolute inset-2 rounded-full opacity-40 blur-sm pointer-events-none"
-                          style={{ background: fashion.bgGradient }}
-                        />
-                      )}
+                  <CharacterAuraVFX
+                    auraId={getVfxAuraIndexForRealm(disc.realmIndex)}
+                    characterHeight={72}
+                    speed={mapTuning.ringSpeedMult}
+                    intensity={Math.min(1.2, mapTuning.ringOpacity)}
+                    phaseOffset={idx * 1.37}
+                    showParticles={true}
+                  >
+                    {sheetCfg ? (
                       <div
-                        ref={(el) => {
-                          walkerSheetRefs.current[disc.id] = el;
-                        }}
-                        className="relative z-10 w-full h-full select-none"
+                        className="relative w-20 h-20 flex items-center justify-center shrink-0"
                         style={{
-                          backgroundImage: `url("${sheetCfg.url}")`,
-                          backgroundSize: '400% 400%',
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: '0% 0%',
-                          filter: robeFilter || undefined,
+                          filter: fashion
+                            ? `drop-shadow(0 0 10px ${fashion.glowColor}) drop-shadow(0 4px 5px rgba(0,0,0,0.45))`
+                            : realmAura
+                              ? `drop-shadow(0 0 ${5 + realmAura.tier}px ${realmAura.glowRgba}) drop-shadow(0 4px 5px rgba(0,0,0,0.45))`
+                              : 'drop-shadow(0 4px 5px rgba(0,0,0,0.45))',
                         }}
+                      >
+                        {fashion && (
+                          <div
+                            className="absolute inset-2 rounded-full opacity-40 blur-sm pointer-events-none"
+                            style={{ background: fashion.bgGradient }}
+                          />
+                        )}
+                        <div
+                          ref={(el) => {
+                            walkerSheetRefs.current[disc.id] = el;
+                          }}
+                          className="relative z-10 w-full h-full select-none"
+                          style={{
+                            backgroundImage: `url("${sheetCfg.url}")`,
+                            backgroundSize: '400% 400%',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: '0% 0%',
+                            filter: robeFilter || undefined,
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <DisciplePortrait
+                        discipleId={disc.id}
+                        name={disc.name}
+                        glyph={disc.avatarGlyph}
+                        element={disc.element}
+                        realmIndex={disc.realmIndex}
+                        spiritRoot={disc.spiritRoot}
+                        fashionId={disc.fashionId}
+                        borderColor={canBreak ? '#FDE047' : '#F6E8C8'}
+                        size="md"
+                        fullBody
                       />
-                    </div>
-                  ) : (
-                    <DisciplePortrait
-                      discipleId={disc.id}
-                      name={disc.name}
-                      glyph={disc.avatarGlyph}
-                      element={disc.element}
-                      realmIndex={disc.realmIndex}
-                      spiritRoot={disc.spiritRoot}
-                      fashionId={disc.fashionId}
-                      borderColor={canBreak ? '#FDE047' : '#F6E8C8'}
-                      size="md"
-                      fullBody
-                    />
-                  )}
+                    )}
+                  </CharacterAuraVFX>
                 </div>
               </div>
               {/* Soft ground contact shadow (dynamically shrinks & fades during flight & jump) */}

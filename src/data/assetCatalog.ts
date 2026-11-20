@@ -1,4 +1,5 @@
 import { VFX_RING_PRESETS } from './vfxRings';
+import { VFX_AURA_PRESETS } from './vfxAuras';
 
 export type AssetCategoryId =
   | 'characters'
@@ -31,8 +32,8 @@ export interface AssetCatalogEntry {
 
 export const ASSET_CATEGORIES: { id: AssetCategoryId; label: string }[] = [
   { id: 'characters', label: 'Nhân Vật' },
-  { id: 'vfx_rings', label: 'VFX Dưới Chân' },
-  { id: 'vfx_auras', label: 'VFX Quanh Thân' },
+  { id: 'vfx_rings', label: 'VFX 16 Vòng' },
+  { id: 'vfx_auras', label: 'Aura Thân (16)' },
   { id: 'buildings', label: 'Công Trình' },
   { id: 'bosses', label: 'Boss' },
   { id: 'monsters', label: 'Quái Bí Cảnh' },
@@ -207,13 +208,15 @@ function buildCatalog(): AssetCatalogEntry[] {
       kind: 'vfx_ring',
       vfxRingId: ring.id,
     });
+  }
+
+  for (const aura of VFX_AURA_PRESETS) {
     list.push({
-      id: `vfx_aura_${String(ring.id).padStart(2, '0')}`,
-      name: `Quanh Thân #${String(ring.id).padStart(2, '0')} · ${ring.name}`,
+      id: `vfx_${aura.code}`,
+      name: `#${String(aura.id).padStart(2, '0')} ${aura.name} (${aura.realmLabel})`,
       category: 'vfx_auras',
-      url: ring.auraTransparentUrl,
+      url: aura.url,
       kind: 'sprite',
-      vfxRingId: ring.id,
     });
   }
 
