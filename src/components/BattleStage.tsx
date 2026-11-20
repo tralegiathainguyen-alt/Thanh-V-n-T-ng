@@ -4,6 +4,7 @@ import { ElementType, SkillDef, SpiritRootGrade } from '../types/game';
 import { formatNum, getElementRelation } from '../utils/gameLogic';
 import { getVfxRingIndexForRealm, getVfxRingPreset } from '../data/vfxRings';
 import { getVfxAuraIndexForRealm } from '../data/vfxAuras';
+import { VanKiemQuyTongVFX, VanKiemQuyTongVfxHandle } from './VanKiemQuyTongVFX';
 import { CharacterAuraVFX } from './CharacterAuraVFX';
 import { DisciplePortrait, ElementSeal, EnemyUnitSprite, SkillIcon } from './ElementIcons';
 import { ChevronDown, Shield } from 'lucide-react';
@@ -249,6 +250,8 @@ interface BattleStageProps {
   floatingTexts: StageFloatingText[];
   screenShake: boolean;
   fastMode: boolean;
+  vanKiemVfxRef?: React.RefObject<VanKiemQuyTongVfxHandle | null>;
+  isDimmed?: boolean;
   onSelectTarget: (enemyId: string) => void;
 }
 
@@ -270,6 +273,8 @@ export const BattleStage: React.FC<BattleStageProps> = ({
   floatingTexts,
   screenShake,
   fastMode,
+  vanKiemVfxRef,
+  isDimmed = false,
   onSelectTarget,
 }) => {
   const getEffectiveWidth = () => {
@@ -340,6 +345,15 @@ export const BattleStage: React.FC<BattleStageProps> = ({
         style={{
           background:
             'radial-gradient(ellipse 80% 72% at 50% 58%, transparent 35%, rgba(8,14,16,0.3) 85%, rgba(6,10,12,0.55) 100%)',
+        }}
+      />
+
+      {/* Ultimate Skill Background Dimming (stays BEHIND characters & VFX) */}
+      <div
+        className="pointer-events-none absolute inset-0 z-[25] transition-opacity duration-150"
+        style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.42)',
+          opacity: isDimmed ? 1 : 0,
         }}
       />
 
@@ -761,6 +775,9 @@ export const BattleStage: React.FC<BattleStageProps> = ({
           );
         })}
       </div>
+
+      {/* Dedicated 4-Beat Ultimate Skill VFX Canvas (Vạn Kiếm Quy Tông) */}
+      <VanKiemQuyTongVFX ref={vanKiemVfxRef} />
     </div>
   );
 };

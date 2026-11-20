@@ -44,6 +44,7 @@ import {
   getUnitHomeCoord,
   resolveArenaSpec,
 } from './BattleStage';
+import { VanKiemQuyTongVfxHandle } from './VanKiemQuyTongVFX';
 import {
   ChevronDown,
   ChevronUp,
@@ -154,7 +155,9 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
   const [hitUnitIds, setHitUnitIds] = useState<string[]>([]);
   const [impactVfx, setImpactVfx] = useState<StageImpactVfx | null>(null);
   const [screenShake, setScreenShake] = useState(false);
+  const [stageDimmed, setStageDimmed] = useState(false);
   const [floatingTexts, setFloatingTexts] = useState<StageFloatingText[]>([]);
+  const vanKiemVfxRef = useRef<VanKiemQuyTongVfxHandle | null>(null);
   const [showLog, setShowLog] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 768 : true));
   const [combatLog, setCombatLog] = useState<string[]>([
     `Khai chiến: ${context.title}! Tận dụng Tương Sinh Ngũ Hành để tạo Combo Liên Hoàn.`,
@@ -512,19 +515,39 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     // -----------------------------------------------------------------------
     // PHASE 3: Impact VFX + Sound + Hit Flash + Knockback + Smooth HP/MP Update
     // -----------------------------------------------------------------------
-    if (acting.isAlly) {
-      setComboChain(newComboChain);
-      setComboElement(skill.element);
-      if (isComboTriggered) sfx.combo(newComboChain);
-      else sfx.attack();
-    } else {
-      sfx.attack();
-    }
-
     const vfxTargets =
       hitIds.length > 0
         ? hitIds
         : nextUnits.filter((u) => u.isAlly === acting.isAlly && u.hp > 0).map((u) => u.id);
+
+    const isVanKiemUltimate =
+      skill.id === 'kim_ult' ||
+      skill.name === 'Vạn Kiếm Quy Tông' ||
+      (skill.element === 'Kim' && skill.target === 'all');
+
+    const commitImpactHit = () => {
+      if (!mountedRef.current) return;
+      if (acting.isAlly) {
+        setComboChain(newComboChain);
+        setComboElement(skill.element);
+        if (isComboTriggered) sfx.combo(newComboChain);
+        else sfx.attack();
+      } else {
+        sfx.attack();
+      }
+      setHitUnitIds(hitIds);
+      if (anyCrit || skill.mpCost > 0 || isComboTriggered || isVanKiemUltimate) {
+        setScreenShake(true);
+        if (isVanKiemUltimate) {
+          window.setTimeout(() => {
+            if (mountedRef.current) setScreenShake(false);
+          }, Math.round(150 * speedMult));
+        }
+      }
+      setUnits(nextUnits);
+      setCombatLog((prev) => [...logs, ...prev].slice(0, 16));
+      pendingFloats.forEach((f) => pushFloat(f.unitId, f.text, f.color, f.subText, f.isCrit));
+    };
 
     setActionAnim({
       casterId: acting.id,
@@ -537,27 +560,45 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       dashTo,
       leapY,
     });
-    setImpactVfx({
-      id: Date.now(),
-      casterId: acting.id,
-      targetIds: vfxTargets,
-      element: skill.element,
-      vfxType: skill.vfxType,
-      targetType: skill.target,
-      isAoE: skill.target !== 'single',
-    });
-    setHitUnitIds(hitIds);
-    if (anyCrit || skill.mpCost > 0 || isComboTriggered) {
-      setScreenShake(true);
+
+    if (isVanKiemUltimate && vanKiemVfxRef.current) {
+      const sameSide = unitsRef.current.filter((u) => u.isAlly === acting.isAlly);
+      const casterIdx = Math.max(0, sameSide.findIndex((u) => u.id === acting.id));
+      const casterPos =
+        dashTo || getUnitHomeCoord(acting, casterIdx, sameSide.length, arenaFloor, isMobileScreen);
+
+      const oppSide = unitsRef.current.filter((u) => u.isAlly !== acting.isAlly);
+      const targetPositions = vfxTargets
+        .map((tId) => {
+          const idx = oppSide.findIndex((u) => u.id === tId);
+          if (idx < 0) return null;
+          return getUnitHomeCoord(oppSide[idx], idx, oppSide.length, arenaFloor, isMobileScreen);
+        })
+        .filter((p): p is { x: number; y: number } => p !== null);
+
+      await vanKiemVfxRef.current.play(casterPos, targetPositions, {
+        speedMult,
+        onDimChange: (dim) => {
+          if (mountedRef.current) setStageDimmed(dim);
+        },
+        onImpact: commitImpactHit,
+      });
+      if (!mountedRef.current) return;
+    } else {
+      setImpactVfx({
+        id: Date.now(),
+        casterId: acting.id,
+        targetIds: vfxTargets,
+        element: skill.element,
+        vfxType: skill.vfxType,
+        targetType: skill.target,
+        isAoE: skill.target !== 'single',
+      });
+      commitImpactHit();
+
+      await wait(Math.round(350 * speedMult));
+      if (!mountedRef.current) return;
     }
-
-    // Commit HP/MP/Shield & Floating Combat Numbers right at the moment of impact!
-    setUnits(nextUnits);
-    setCombatLog((prev) => [...logs, ...prev].slice(0, 16));
-    pendingFloats.forEach((f) => pushFloat(f.unitId, f.text, f.color, f.subText, f.isCrit));
-
-    await wait(Math.round(350 * speedMult));
-    if (!mountedRef.current) return;
 
     // -----------------------------------------------------------------------
     // PHASE 4: Return to Formation Slot -> Pause 200ms -> Advance Turn
@@ -565,6 +606,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     setHitUnitIds([]);
     setImpactVfx(null);
     setScreenShake(false);
+    setStageDimmed(false);
     setActionAnim({
       casterId: acting.id,
       phase: 'return',
@@ -758,6 +800,8 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         floatingTexts={floatingTexts}
         screenShake={screenShake}
         fastMode={fastMode}
+        vanKiemVfxRef={vanKiemVfxRef}
+        isDimmed={stageDimmed}
         onSelectTarget={(enemyId) => {
           sfx.click();
           setSelectedTargetId(enemyId);
