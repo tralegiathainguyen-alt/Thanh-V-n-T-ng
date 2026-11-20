@@ -105,7 +105,7 @@ export interface VipState {
   claimedMilestones: number[];
   firstRechargeClaimedIds: string[];
   unlockedFashions: VipFashionId[];
-  autoDiscipleEnabled: boolean; // VIP 5+: Auto đột phá đệ tử & mặc trang bị tốt nhất
+  autoDiscipleEnabled: boolean; // VIP 5+: Auto đột phá đệ tử, mặc trang bị tốt nhất, cường hóa & nâng bậc trang bị
   autoSectEnabled: boolean; // VIP 6+: Auto công việc Tông Môn
   autoGemEnabled: boolean; // VIP 7+: Auto hợp nhất nâng ngọc & khảm ngọc
   autoWorldEnabled: boolean; // VIP 10+: Auto đánh Thế Giới

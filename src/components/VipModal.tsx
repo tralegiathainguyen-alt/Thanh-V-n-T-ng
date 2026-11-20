@@ -135,7 +135,7 @@ export function VipModal({
 
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
             <span className={vipLevel >= 5 ? 'text-[#6EE7B7]' : 'text-[#9FB5AA]'}>
-              {vipLevel >= 5 ? '✓' : '○'} VIP 5 Auto Đệ Tử & Đồ
+              {vipLevel >= 5 ? '✓' : '○'} VIP 5 Auto Đệ Tử, Đồ & Cường Hóa
             </span>
             <span className="text-[#6B877E]">·</span>
             <span className={vipLevel >= 6 ? 'text-[#6EE7B7]' : 'text-[#9FB5AA]'}>
@@ -479,11 +479,11 @@ export function VipModal({
               <div className="flex items-center gap-2">
                 <ArrowUpCircle className="w-5 h-5 text-[#1D5E8C]" />
                 <h3 className="text-base font-bold text-[#1E3331]">
-                  VIP 5 · Auto Nâng Cấp Đệ Tử & Tự Mặc Trang Bị Tốt Nhất
+                  VIP 5 · Auto Đệ Tử, Mặc Đồ, Cường Hóa & Nâng Bậc Trang Bị
                 </h3>
               </div>
               <p className="text-xs text-[#544A3C] leading-relaxed">
-                Tự động kiểm tra mỗi 3.5 giây: hễ đệ tử tích đủ Linh Khí sẽ tự khởi động Độ Kiếp đột phá cảnh giới (tự dùng Đột Phá Đan tối ưu nếu có), đồng thời tự động mặc những trang bị có chiến lực cao nhất cho toàn bộ đệ tử (ưu tiên đội hình xuất chiến).
+                Tự động kiểm tra mỗi 3.5 giây: hễ đệ tử tích đủ Linh Khí sẽ tự khởi động Độ Kiếp đột phá cảnh giới (tự dùng Đột Phá Đan tối ưu nếu có), đồng thời tự động mặc những trang bị có chiến lực cao nhất cho toàn bộ đệ tử (ưu tiên đội hình xuất chiến). Ngoài ra tự động Cường Hóa trang bị đang mặc (tối đa 6 lần/chu kỳ, ưu tiên món cấp thấp nhất, tới +20) và tự Nâng Bậc phẩm cấp trang bị khi đủ Huyền Thiết, Tinh Hoa Boss & Linh Thạch.
               </p>
             </div>
             <button

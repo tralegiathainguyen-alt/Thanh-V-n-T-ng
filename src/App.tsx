@@ -357,7 +357,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
     (m) => vipLevel >= m.level && !state.vip.claimedMilestones.includes(m.level),
   ).length;
 
-  // VIP 5+: Auto nâng cấp (đột phá cảnh giới) đệ tử khi đủ Linh Khí & tự mặc trang bị tốt nhất mỗi 3.5 giây
+  // VIP 5+: Auto nâng cấp (đột phá cảnh giới) đệ tử khi đủ Linh Khí, tự mặc trang bị tốt nhất, auto cường hóa & nâng bậc trang bị mỗi 3.5 giây
   useEffect(() => {
     if (vipLevel < 5 || !state.vip.autoDiscipleEnabled) return;
     const timer = window.setInterval(() => {
@@ -474,6 +474,74 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
           changed = true;
           nextDisciples = updatedDisciples;
           newLogs.push(`[VIP 5 Trang Bị] Tự động mặc ${totalEquippedUpgrades} món trang bị mạnh hơn cho đội hình!`);
+        }
+
+        // Danh sách trang bị đang mặc (ưu tiên đệ tử trong đội hình)
+        const formationIds = new Set(nextDisciples.filter((d) => d.inFormation).map((d) => d.id));
+        const equippedItems = nextInv
+          .filter((eq) => eq.equippedBy)
+          .sort((a, b) => {
+            const fa = formationIds.has(a.equippedBy as string) ? 0 : 1;
+            const fb = formationIds.has(b.equippedBy as string) ? 0 : 1;
+            return fa - fb;
+          });
+
+        // 3. Auto Cường Hóa: nâng món có cấp cường hóa thấp nhất trước (tối đa 6 lần / chu kỳ)
+        const enhancedCount = new Map<string, { name: string; from: number; to: number }>();
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          const candidates = equippedItems.filter((eq) => eq.enhanceLevel < 20);
+          if (candidates.length === 0) break;
+          let target = candidates[0];
+          for (const eq of candidates) {
+            const better =
+              eq.enhanceLevel < target.enhanceLevel ||
+              (eq.enhanceLevel === target.enhanceLevel &&
+                formationIds.has(eq.equippedBy as string) &&
+                !formationIds.has(target.equippedBy as string));
+            if (better) target = eq;
+          }
+          const costStone = Math.round(160 * Math.pow(1.26, target.enhanceLevel));
+          const costMat = 2 + target.enhanceLevel;
+          if (nextR.linhThach < costStone || nextR.cuongHoaThach < costMat) break;
+          nextR.linhThach -= costStone;
+          nextR.cuongHoaThach -= costMat;
+          const rec = enhancedCount.get(target.id) || { name: target.name, from: target.enhanceLevel, to: target.enhanceLevel };
+          target.enhanceLevel += 1;
+          rec.to = target.enhanceLevel;
+          enhancedCount.set(target.id, rec);
+        }
+        if (enhancedCount.size > 0) {
+          changed = true;
+          const parts = Array.from(enhancedCount.values()).map((r) => `${r.name} +${r.from}→+${r.to}`);
+          newLogs.push(`[VIP 5 Cường Hóa] ${parts.join(', ')}`);
+        }
+
+        // 4. Auto Nâng Bậc trang bị: ưu tiên món đã cường hóa cao & phẩm cấp thấp (tối đa 1 món / chu kỳ)
+        const ascendCandidates = equippedItems
+          .map((eq) => ({ eq, idx: EQUIPMENT_TIERS.findIndex((t) => t.id === eq.tier) }))
+          .filter(({ idx }) => idx >= 0 && idx < EQUIPMENT_TIERS.length - 1)
+          .sort((a, b) => a.idx - b.idx || b.eq.enhanceLevel - a.eq.enhanceLevel);
+        for (const { eq, idx } of ascendCandidates) {
+          const cur = EQUIPMENT_TIERS[idx];
+          const next = EQUIPMENT_TIERS[idx + 1];
+          if (
+            nextR.huyenThiet < cur.ascendCostIron ||
+            nextR.tinhHoaBoss < cur.ascendCostEssence ||
+            nextR.linhThach < cur.ascendCostStone
+          ) {
+            continue;
+          }
+          nextR.huyenThiet -= cur.ascendCostIron;
+          nextR.tinhHoaBoss -= cur.ascendCostEssence;
+          nextR.linhThach -= cur.ascendCostStone;
+          eq.tier = next.id;
+          eq.subStats = [
+            ...eq.subStats,
+            { key: 'elemBonus', label: 'Tăng Công Ngũ Hành', value: 6 + idx * 3, isPercent: true },
+          ];
+          changed = true;
+          newLogs.push(`[VIP 5 Nâng Bậc] ${eq.name} tấn thăng ${cur.name} → ${next.name}!`);
+          break;
         }
 
         if (!changed) return prev;
@@ -1901,7 +1969,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
 
   const handleToggleAutoDisciple = () => {
     if (vipLevel < 5) {
-      showToast('Cần đạt VIP 5 để mở khóa Auto Nâng Cấp Đệ Tử & Mặc Trang Bị Tốt Nhất!');
+      showToast('Cần đạt VIP 5 để mở khóa Auto Đệ Tử, Mặc Đồ, Cường Hóa & Nâng Bậc Trang Bị!');
       return;
     }
     sfx.click();
@@ -2103,7 +2171,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                             >
                               <span className="flex items-center gap-1.5 font-semibold text-[11px]">
                                 <ArrowUpCircle className="w-3.5 h-3.5" />
-                                VIP 5 Đệ Tử &amp; Đồ
+                                VIP 5 Đệ Tử, Đồ &amp; Cường Hóa
                               </span>
                               <span className="text-[10px] font-mono font-bold">
                                 {state.vip.autoDiscipleEnabled ? 'BẬT' : 'TẮT'}
