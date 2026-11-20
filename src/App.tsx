@@ -434,8 +434,8 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
           };
         });
 
-        // 2. Auto quick-equip best gear for disciples (formation disciples first)
-        const nextInv = prev.inventory.map((eq) => ({ ...eq }));
+        // 2. Auto quick-equip best gear for disciples (formation disciples first, inheriting slot enhance + gems)
+        const nextInv = prev.inventory.map((eq) => ({ ...eq, sockets: [...eq.sockets] }));
         const invById = new Map(nextInv.map((eq) => [eq.id, eq]));
         const priorityIndices = nextDisciples
           .map((d, idx) => ({ d, idx }))
@@ -463,15 +463,41 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
             for (const eq of nextInv) {
               if (eq.slot !== slot) continue;
               if (eq.equippedBy && eq.equippedBy !== disc.id) continue;
-              const pwr = getEquipmentPower(eq);
-              if (pwr > bestPwr) {
-                bestPwr = pwr;
+              const projectedPwr =
+                currentItem && eq.id !== currentItem.id
+                  ? getEquipmentPower({
+                      ...eq,
+                      enhanceLevel: Math.max(eq.enhanceLevel, currentItem.enhanceLevel),
+                      sockets:
+                        eq.sockets.some(Boolean)
+                          ? eq.sockets
+                          : currentItem.sockets,
+                    })
+                  : getEquipmentPower(eq);
+              if (projectedPwr > bestPwr) {
+                bestPwr = projectedPwr;
                 bestItem = eq;
               }
             }
 
             if (bestItem && bestItem.id !== currentId) {
-              if (currentItem) currentItem.equippedBy = null;
+              if (currentItem) {
+                // Inherit enhancement level & socketed gems from replaced slot item
+                if (currentItem.enhanceLevel > bestItem.enhanceLevel) {
+                  const tmpEnh = bestItem.enhanceLevel;
+                  bestItem.enhanceLevel = currentItem.enhanceLevel;
+                  currentItem.enhanceLevel = tmpEnh;
+                }
+                const allGems = [
+                  ...currentItem.sockets.filter((g): g is GemItem => Boolean(g)),
+                  ...bestItem.sockets.filter((g): g is GemItem => Boolean(g)),
+                ].sort((a, b) => b.tier - a.tier);
+                const newLen = bestItem.sockets.length;
+                const oldLen = currentItem.sockets.length;
+                bestItem.sockets = Array.from({ length: newLen }, (_, i) => allGems[i] || null);
+                currentItem.sockets = Array.from({ length: oldLen }, (_, i) => allGems[newLen + i] || null);
+                currentItem.equippedBy = null;
+              }
               bestItem.equippedBy = disc.id;
               nextEqMap[slot] = bestItem.id;
               discChanged = true;
@@ -1455,20 +1481,54 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
   };
 
   // ---- EQUIPMENT & GEM HANDLERS ----
+  const inheritSlotGearProgress = (
+    oldItem: GameState['inventory'][number] | undefined,
+    newItem: GameState['inventory'][number] | undefined,
+  ): boolean => {
+    if (!oldItem || !newItem || oldItem.id === newItem.id) return false;
+    let transferred = false;
+    if (oldItem.enhanceLevel > newItem.enhanceLevel) {
+      const tmp = newItem.enhanceLevel;
+      newItem.enhanceLevel = oldItem.enhanceLevel;
+      oldItem.enhanceLevel = tmp;
+      transferred = true;
+    }
+    const oldGems = oldItem.sockets.filter((g): g is GemItem => Boolean(g));
+    if (oldGems.length > 0) {
+      const allGems = [
+        ...oldGems,
+        ...newItem.sockets.filter((g): g is GemItem => Boolean(g)),
+      ].sort((a, b) => b.tier - a.tier);
+      const newLen = newItem.sockets.length;
+      const oldLen = oldItem.sockets.length;
+      newItem.sockets = Array.from({ length: newLen }, (_, i) => allGems[i] || null);
+      oldItem.sockets = Array.from({ length: oldLen }, (_, i) => allGems[newLen + i] || null);
+      transferred = true;
+    }
+    return transferred;
+  };
+
   const handleEquipItem = (discipleId: string, itemId: string) => {
     const item = state.inventory.find((i) => i.id === itemId);
     if (!item) return;
     sfx.click();
+    let inherited = false;
     setState((prev) => {
       const oldOwnerId = item.equippedBy;
       const targetDisc = prev.disciples.find((d) => d.id === discipleId);
       const replacedItemId = targetDisc?.equipped[item.slot];
 
-      const nextInventory = prev.inventory.map((eq) => {
-        if (eq.id === itemId) return { ...eq, equippedBy: discipleId };
-        if (eq.id === replacedItemId) return { ...eq, equippedBy: null };
-        return eq;
-      });
+      const nextInventory = prev.inventory.map((eq) => ({ ...eq, sockets: [...eq.sockets] }));
+      const nextNewItem = nextInventory.find((eq) => eq.id === itemId);
+      const nextOldItem = replacedItemId ? nextInventory.find((eq) => eq.id === replacedItemId) : undefined;
+
+      if (nextOldItem && nextNewItem && nextOldItem.id !== nextNewItem.id) {
+        inherited = inheritSlotGearProgress(nextOldItem, nextNewItem);
+        nextOldItem.equippedBy = null;
+      }
+      if (nextNewItem) {
+        nextNewItem.equippedBy = discipleId;
+      }
 
       const nextDisciples = prev.disciples.map((d) => {
         const nextEq = { ...d.equipped };
@@ -1483,6 +1543,9 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
 
       return { ...prev, inventory: nextInventory, disciples: nextDisciples };
     });
+    if (inherited) {
+      showToast(`Đã thay ${item.name} & tự động kế thừa Cường Hóa + Linh Ngọc của ô trang bị!`);
+    }
   };
 
   const handleUnequipSlot = (discipleId: string, slot: EquipmentSlot) => {
@@ -1513,9 +1576,29 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
     let changedCount = 0;
 
     EQUIPMENT_SLOTS.forEach(({ slot }) => {
+      const currentId = disc.equipped[slot];
+      const currentItem = currentId ? eligible.find((i) => i.id === currentId) : undefined;
       const candidates = eligible
         .filter((item) => item.slot === slot)
-        .sort((a, b) => getEquipmentPower(b) - getEquipmentPower(a));
+        .sort((a, b) => {
+          const pa =
+            currentItem && a.id !== currentItem.id
+              ? getEquipmentPower({
+                  ...a,
+                  enhanceLevel: Math.max(a.enhanceLevel, currentItem.enhanceLevel),
+                  sockets: a.sockets.some(Boolean) ? a.sockets : currentItem.sockets,
+                })
+              : getEquipmentPower(a);
+          const pb =
+            currentItem && b.id !== currentItem.id
+              ? getEquipmentPower({
+                  ...b,
+                  enhanceLevel: Math.max(b.enhanceLevel, currentItem.enhanceLevel),
+                  sockets: b.sockets.some(Boolean) ? b.sockets : currentItem.sockets,
+                })
+              : getEquipmentPower(b);
+          return pb - pa;
+        });
       const best = candidates[0];
       if (best) {
         nextEquipped[slot] = best.id;
@@ -1529,18 +1612,33 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
       return;
     }
 
-    const chosenIds = new Set(Object.values(nextEquipped).filter(Boolean) as string[]);
     sfx.upgrade();
-    setState((prev) => ({
-      ...prev,
-      inventory: prev.inventory.map((eq) => {
-        if (chosenIds.has(eq.id)) return { ...eq, equippedBy: discipleId };
-        if (eq.equippedBy === discipleId) return { ...eq, equippedBy: null };
-        return eq;
-      }),
-      disciples: prev.disciples.map((d) => (d.id === discipleId ? { ...d, equipped: nextEquipped } : d)),
-    }));
-    showToast(`Đã mặc nhanh ${changedCount} trang bị tốt nhất cho ${disc.name}!`);
+    setState((prev) => {
+      const nextInv = prev.inventory.map((eq) => ({ ...eq, sockets: [...eq.sockets] }));
+      const byId = new Map(nextInv.map((eq) => [eq.id, eq]));
+      const prevDisc = prev.disciples.find((d) => d.id === discipleId);
+
+      EQUIPMENT_SLOTS.forEach(({ slot }) => {
+        const oldId = prevDisc?.equipped[slot];
+        const newId = nextEquipped[slot];
+        if (oldId && newId && oldId !== newId) {
+          inheritSlotGearProgress(byId.get(oldId), byId.get(newId));
+        }
+      });
+
+      const chosenIds = new Set(Object.values(nextEquipped).filter(Boolean) as string[]);
+      nextInv.forEach((eq) => {
+        if (chosenIds.has(eq.id)) eq.equippedBy = discipleId;
+        else if (eq.equippedBy === discipleId) eq.equippedBy = null;
+      });
+
+      return {
+        ...prev,
+        inventory: nextInv,
+        disciples: prev.disciples.map((d) => (d.id === discipleId ? { ...d, equipped: nextEquipped } : d)),
+      };
+    });
+    showToast(`Đã mặc nhanh ${changedCount} trang bị tốt nhất (kế thừa Cường Hóa & Ngọc) cho ${disc.name}!`);
   };
 
   const handleQuickEquipSet = (discipleId: string, preferredSetId?: string) => {
@@ -1610,17 +1708,32 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
       }
     });
 
-    const chosenIds = new Set(Object.values(nextEquipped).filter(Boolean) as string[]);
     sfx.upgrade();
-    setState((prev) => ({
-      ...prev,
-      inventory: prev.inventory.map((eq) => {
-        if (chosenIds.has(eq.id)) return { ...eq, equippedBy: discipleId };
-        if (eq.equippedBy === discipleId) return { ...eq, equippedBy: null };
-        return eq;
-      }),
-      disciples: prev.disciples.map((d) => (d.id === discipleId ? { ...d, equipped: nextEquipped } : d)),
-    }));
+    setState((prev) => {
+      const nextInv = prev.inventory.map((eq) => ({ ...eq, sockets: [...eq.sockets] }));
+      const byId = new Map(nextInv.map((eq) => [eq.id, eq]));
+      const prevDisc = prev.disciples.find((d) => d.id === discipleId);
+
+      EQUIPMENT_SLOTS.forEach(({ slot }) => {
+        const oldId = prevDisc?.equipped[slot];
+        const newId = nextEquipped[slot];
+        if (oldId && newId && oldId !== newId) {
+          inheritSlotGearProgress(byId.get(oldId), byId.get(newId));
+        }
+      });
+
+      const chosenIds = new Set(Object.values(nextEquipped).filter(Boolean) as string[]);
+      nextInv.forEach((eq) => {
+        if (chosenIds.has(eq.id)) eq.equippedBy = discipleId;
+        else if (eq.equippedBy === discipleId) eq.equippedBy = null;
+      });
+
+      return {
+        ...prev,
+        inventory: nextInv,
+        disciples: prev.disciples.map((d) => (d.id === discipleId ? { ...d, equipped: nextEquipped } : d)),
+      };
+    });
     const setName = EQUIPMENT_SETS[chosenSetId]?.name || chosenSetId;
     showToast(`Đã mặc nhanh ${setName} (${setPieceCount}/4 món) cho ${disc.name}!`);
   };
