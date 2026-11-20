@@ -15,6 +15,11 @@ import {
 } from './ElementIcons';
 
 import { getVfxRingPreset } from '../data/vfxRings';
+import {
+  ASSET_OVERRIDES_EVENT,
+  GlobalMapTuning,
+  loadAssetStudioConfig,
+} from '../utils/assetOverrides';
 
 const sectVfxRingCache = new Map<number, HTMLImageElement>();
 function getSectVfxRingImage(ringId: number): HTMLImageElement | null {
@@ -313,6 +318,19 @@ export function SectMapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const groundVfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const vfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [mapTuning, setMapTuning] = useState<GlobalMapTuning>(() => loadAssetStudioConfig().globalMap);
+  const mapTuningRef = useRef<GlobalMapTuning>(mapTuning);
+  mapTuningRef.current = mapTuning;
+
+  useEffect(() => {
+    const onTuningChanged = () => {
+      const next = loadAssetStudioConfig().globalMap;
+      mapTuningRef.current = next;
+      setMapTuning(next);
+    };
+    window.addEventListener(ASSET_OVERRIDES_EVENT, onTuningChanged);
+    return () => window.removeEventListener(ASSET_OVERRIDES_EVENT, onTuningChanged);
+  }, []);
   const [viewport, setViewport] = useState(() =>
     typeof window !== 'undefined'
       ? { cw: window.innerWidth, ch: window.innerHeight }
@@ -1368,26 +1386,29 @@ export function SectMapView({
             const cy = ((w.y + w.currentLiftPct) / 100) * VFX_H;
             const ringImg = getSectVfxRingImage(aura.vfxRingId);
 
+            const tuning = mapTuningRef.current;
+            const ringSpeed = aura.ringSpeed * tuning.ringSpeedMult;
+
             // Preset-specific kinetics (smoke_water / cosmic_orbit / rune_circle / lightning_fire)
-            let mainAngle = sec * aura.ringSpeed + w.phase;
-            let auraAngle = -sec * aura.ringSpeed * 0.72 + w.phase;
+            let mainAngle = sec * ringSpeed + w.phase;
+            let auraAngle = -sec * ringSpeed * 0.72 + w.phase;
             let auraScale = 1.12 + Math.sin(sec * 2.2 + w.phase) * 0.04;
             let flicker = 1.0;
 
             if (aura.vfxGroup === 'lightning_fire') {
-              const snapStep = Math.floor(sec * 14 + w.phase * 5);
+              const snapStep = Math.floor(sec * 14 * Math.max(0.1, tuning.ringSpeedMult) + w.phase * 5);
               mainAngle = (snapStep * 0.48) % (Math.PI * 2);
               auraAngle = -(snapStep * 0.31) % (Math.PI * 2);
               flicker = 0.8 + ((Math.sin(snapStep * 12.9898) * 43758.5453) % 1 + 1) * 0.22;
               auraScale = 1.14 + Math.sin(sec * 7.5 + w.phase) * 0.05;
             } else if (aura.vfxGroup === 'rune_circle') {
-              mainAngle = sec * aura.ringSpeed * 0.52 + w.phase;
-              auraAngle = -sec * aura.ringSpeed * 0.78 + w.phase;
+              mainAngle = sec * ringSpeed * 0.52 + w.phase;
+              auraAngle = -sec * ringSpeed * 0.78 + w.phase;
               auraScale = 1.12 + Math.sin(sec * 1.8 + w.phase) * 0.05;
               flicker = 0.92 + Math.sin(sec * 2.3 + w.phase) * 0.1;
             } else if (aura.vfxGroup === 'smoke_water') {
-              mainAngle = sec * aura.ringSpeed * 0.65 + w.phase;
-              auraAngle = -sec * aura.ringSpeed * 0.42 + w.phase;
+              mainAngle = sec * ringSpeed * 0.65 + w.phase;
+              auraAngle = -sec * ringSpeed * 0.42 + w.phase;
               flicker = 0.88 + Math.sin(sec * 1.9 + w.phase) * 0.1;
             }
 
@@ -1396,26 +1417,26 @@ export function SectMapView({
             ringCtx.globalCompositeOperation = 'lighter';
 
             // Ambient floor PointLight reflection beneath feet (drawn on ground layer UNDERNEATH feet)
-            const lightR = aura.ringRadius * 1.45;
+            const lightR = aura.ringRadius * 1.45 * tuning.ringScale;
             ringCtx.save();
-            ringCtx.translate(cx, cy + 2);
+            ringCtx.translate(cx, cy + tuning.ringOffsetY);
             ringCtx.scale(1, 0.44);
             const floorGrad = ringCtx.createRadialGradient(0, 0, 2, 0, 0, lightR);
             floorGrad.addColorStop(0, aura.glowRgba);
             floorGrad.addColorStop(1, 'rgba(0,0,0,0)');
             ringCtx.fillStyle = floorGrad;
-            ringCtx.globalAlpha = Math.min(0.85, (0.36 + aura.tier * 0.06) * flicker);
+            ringCtx.globalAlpha = Math.min(0.9, (0.36 + aura.tier * 0.06) * flicker * tuning.ringOpacity);
             ringCtx.beginPath();
             ringCtx.arc(0, 0, lightR, 0, Math.PI * 2);
             ringCtx.fill();
 
             if (ringImg && ringImg.complete && ringImg.naturalWidth > 0) {
-              const drawD = aura.ringRadius * 2.05;
+              const drawD = aura.ringRadius * 2.05 * tuning.ringScale;
               // Secondary counter-rotating aura layer (1.12x scale, additive glow)
               ringCtx.save();
               ringCtx.rotate(auraAngle);
               ringCtx.globalCompositeOperation = 'lighter';
-              ringCtx.globalAlpha = Math.min(0.65, (0.34 + aura.tier * 0.04) * flicker);
+              ringCtx.globalAlpha = Math.min(0.75, (0.34 + aura.tier * 0.04) * flicker * tuning.ringOpacity);
               const auraD = drawD * auraScale;
               ringCtx.drawImage(ringImg, -auraD / 2, -auraD / 2, auraD, auraD);
               ringCtx.restore();
@@ -1424,11 +1445,11 @@ export function SectMapView({
               ringCtx.save();
               ringCtx.rotate(mainAngle);
               ringCtx.globalCompositeOperation = 'source-over';
-              ringCtx.globalAlpha = Math.min(0.96, (0.78 + aura.tier * 0.025) * flicker);
+              ringCtx.globalAlpha = Math.min(1, (0.78 + aura.tier * 0.025) * flicker * tuning.ringOpacity);
               ringCtx.drawImage(ringImg, -drawD / 2, -drawD / 2, drawD, drawD);
               // Additive HDR bloom pass on top for glowing radiance
               ringCtx.globalCompositeOperation = 'lighter';
-              ringCtx.globalAlpha = Math.min(0.75, (0.28 + aura.tier * 0.055) * flicker);
+              ringCtx.globalAlpha = Math.min(0.85, (0.28 + aura.tier * 0.055) * flicker * tuning.ringOpacity);
               ringCtx.drawImage(ringImg, -drawD * 0.525, -drawD * 0.525, drawD * 1.05, drawD * 1.05);
               ringCtx.restore();
             } else {
@@ -1762,6 +1783,9 @@ export function SectMapView({
           alt="Bản đồ Sơn Môn Thanh Vân Tiên Tông"
           draggable={false}
           className="absolute inset-0 w-full h-full object-fill pointer-events-none"
+          style={{
+            filter: `brightness(${mapTuning.mapBrightness.toFixed(2)}) contrast(${mapTuning.mapContrast.toFixed(2)}) saturate(${mapTuning.mapSaturate.toFixed(2)})`,
+          }}
         />
 
         {/* Floating ambient golden & jade spirit qi motes (locked to landmarks) */}
@@ -1930,7 +1954,16 @@ export function SectMapView({
                 }}
                 className="will-change-transform"
               >
-                <div className="transition-transform group-hover:scale-110">
+                <div
+                  className="transition-transform group-hover:scale-110"
+                  style={{
+                    transform:
+                      Math.abs(mapTuning.discipleScale - 1) > 0.01
+                        ? `scale(${mapTuning.discipleScale.toFixed(2)})`
+                        : undefined,
+                    transformOrigin: 'bottom center',
+                  }}
+                >
                   {sheetCfg ? (
                     <div
                       className="relative w-20 h-20 flex items-center justify-center shrink-0"

@@ -59,6 +59,7 @@ import { VipModal } from './components/VipModal';
 import { AuthScreen } from './components/AuthScreen';
 import { AccountModal } from './components/AccountModal';
 import { VfxShowcaseModal } from './components/VfxShowcaseModal';
+import { AssetStudioModal } from './components/AssetStudioModal';
 import { DisciplePortrait, ResourceIcon } from './components/ElementIcons';
 import {
   UserAccount,
@@ -80,6 +81,7 @@ import {
   Hammer,
   Handshake,
   MessageSquare,
+  Palette,
   Plus,
   ScrollText,
   Send,
@@ -101,6 +103,10 @@ export default function App() {
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).get('vfx-demo') === '1';
   });
+  const [standaloneAssetStudio, setStandaloneAssetStudio] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('asset-studio') === '1';
+  });
   const [booting, setBooting] = useState(true);
   const [session, setSession] = useState<{ account: UserAccount; state: GameState } | null>(null);
 
@@ -119,6 +125,20 @@ export default function App() {
       active = false;
     };
   }, []);
+
+  if (standaloneAssetStudio) {
+    return (
+      <AssetStudioModal
+        standalone
+        onClose={() => {
+          setStandaloneAssetStudio(false);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('asset-studio');
+          window.history.replaceState({}, '', url.toString());
+        }}
+      />
+    );
+  }
 
   if (standaloneVfxDemo) {
     return (
@@ -2240,6 +2260,18 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
             <button
               onClick={() => {
                 sfx.click();
+                setActiveModal('asset_studio');
+              }}
+              title="Asset Studio — Cân chỉnh & Tinh chỉnh toàn bộ tài nguyên game"
+              aria-label="Asset Studio"
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#241E3A]/95 hover:bg-[#322952] border border-[#C084FC]/60 text-[#E9D5FF] text-[11px] font-sans font-semibold cursor-pointer shrink-0 shadow transition-colors"
+            >
+              <Palette className="w-3.5 h-3.5 text-[#C084FC]" />
+              <span className="hidden xl:inline">Studio</span>
+            </button>
+            <button
+              onClick={() => {
+                sfx.click();
                 setActiveModal('vfx_demo');
               }}
               title="Phòng thử nghiệm 16 hiệu ứng VFX Cảnh Giới"
@@ -2860,6 +2892,10 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
 
       {activeModal === 'vfx_demo' && (
         <VfxShowcaseModal onClose={() => setActiveModal(null)} />
+      )}
+
+      {activeModal === 'asset_studio' && (
+        <AssetStudioModal onClose={() => setActiveModal(null)} />
       )}
 
       {/* TURN-BASED COMBAT OVERLAY */}
