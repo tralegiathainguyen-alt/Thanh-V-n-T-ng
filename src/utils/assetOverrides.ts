@@ -70,39 +70,146 @@ export const DEFAULT_GLOBAL_MAP_TUNING: GlobalMapTuning = {
 };
 
 const STORAGE_KEY = 'tvtt_asset_studio_config_v1';
+const IDB_NAME = 'tvtt_asset_studio_idb_v1';
+const IDB_STORE = 'custom_images';
 export const ASSET_OVERRIDES_EVENT = 'tvtt:asset-overrides-changed';
 
+let memoryConfig: AssetStudioConfig | null = null;
+const memoryImages: Record<string, string> = {};
+let idbHydrated = false;
+
+function openAssetIdb(): Promise<IDBDatabase | null> {
+  if (typeof window === 'undefined' || !('indexedDB' in window)) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const req = window.indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function persistImagesToIdb(images: Record<string, string>): Promise<void> {
+  const db = await openAssetIdb();
+  if (!db) return;
+  await new Promise<void>((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      store.clear();
+      Object.entries(images).forEach(([id, dataUrl]) => {
+        if (dataUrl) store.put(dataUrl, id);
+      });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}
+
+async function hydrateImagesFromIdb(): Promise<void> {
+  if (idbHydrated) return;
+  idbHydrated = true;
+  const db = await openAssetIdb();
+  if (!db) return;
+  const loaded: Record<string, string> = {};
+  await new Promise<void>((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (cursor) {
+          if (typeof cursor.key === 'string' && typeof cursor.value === 'string') {
+            loaded[cursor.key] = cursor.value;
+          }
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+      req.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+
+  const keys = Object.keys(loaded);
+  if (keys.length === 0) return;
+
+  const base = loadAssetStudioConfig();
+  const nextAssets = { ...base.assets };
+  keys.forEach((id) => {
+    memoryImages[id] = loaded[id];
+    nextAssets[id] = {
+      ...DEFAULT_ASSET_TRANSFORM,
+      ...(nextAssets[id] || {}),
+      customDataUrl: loaded[id],
+    };
+  });
+  memoryConfig = { ...base, assets: nextAssets };
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(ASSET_OVERRIDES_EVENT, { detail: memoryConfig }));
+  }
+}
+
+if (typeof window !== 'undefined') {
+  hydrateImagesFromIdb().catch(() => {});
+}
+
 export function loadAssetStudioConfig(): AssetStudioConfig {
+  if (memoryConfig) return memoryConfig;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return {
+      memoryConfig = {
         version: 1,
         updatedAt: Date.now(),
         globalMap: { ...DEFAULT_GLOBAL_MAP_TUNING },
         assets: {},
         vfxRings: {},
       };
+      return memoryConfig;
     }
     const parsed = JSON.parse(raw) as Partial<AssetStudioConfig>;
-    return {
+    const assets: Record<string, Partial<AssetTransformOverride>> = { ...(parsed.assets || {}) };
+    Object.entries(memoryImages).forEach(([id, dataUrl]) => {
+      assets[id] = {
+        ...DEFAULT_ASSET_TRANSFORM,
+        ...(assets[id] || {}),
+        customDataUrl: dataUrl,
+      };
+    });
+    memoryConfig = {
       version: 1,
       updatedAt: parsed.updatedAt || Date.now(),
       globalMap: {
         ...DEFAULT_GLOBAL_MAP_TUNING,
         ...(parsed.globalMap || {}),
       },
-      assets: parsed.assets || {},
+      assets,
       vfxRings: parsed.vfxRings || {},
     };
+    return memoryConfig;
   } catch {
-    return {
+    memoryConfig = {
       version: 1,
       updatedAt: Date.now(),
       globalMap: { ...DEFAULT_GLOBAL_MAP_TUNING },
       assets: {},
       vfxRings: {},
     };
+    return memoryConfig;
   }
 }
 
@@ -113,11 +220,33 @@ export function saveAssetStudioConfig(cfg: AssetStudioConfig): void {
     updatedAt: Date.now(),
     vfxRings: cfg.vfxRings || {},
   };
+  memoryConfig = next;
+
+  // Separate heavy customDataUrl blobs (stored in IndexedDB) from lightweight metadata (localStorage)
+  const lightAssets: Record<string, Partial<AssetTransformOverride>> = {};
+  const nextImages: Record<string, string> = {};
+  Object.keys(memoryImages).forEach((k) => delete memoryImages[k]);
+
+  Object.entries(next.assets || {}).forEach(([id, ov]) => {
+    if (ov.customDataUrl) {
+      memoryImages[id] = ov.customDataUrl;
+      nextImages[id] = ov.customDataUrl;
+    }
+    const { customDataUrl: _omit, ...rest } = ov;
+    lightAssets[id] = rest;
+  });
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...next, assets: lightAssets }),
+    );
   } catch {
-    // Ignore storage quota errors if a very large custom image was uploaded
+    // Ignore storage quota errors
   }
+
+  persistImagesToIdb(nextImages).catch(() => {});
+
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(ASSET_OVERRIDES_EVENT, { detail: next }));
   }
