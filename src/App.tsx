@@ -1981,7 +1981,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
   const hasOfflineReady = state.pendingOfflineSeconds >= 600;
 
   return (
-    <div className="relative w-full h-[100dvh] overflow-hidden bg-[#122120] select-none">
+    <div className="relative w-full h-full overflow-hidden bg-[#122120] select-none">
       {/* FULLSCREEN INTERACTIVE ISOMETRIC SECT VIEW */}
       <SectMapView
         state={state}
@@ -1998,10 +1998,10 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
       />
 
       {/* TOP JADE RIBBON HUD */}
-      <header className="fixed top-0 inset-x-0 z-30 pointer-events-none px-1 sm:px-3 pt-[max(0.25rem,env(safe-area-inset-top))]">
-        <div className="pointer-events-auto max-w-[1600px] mx-auto jade-hud-bar px-1 sm:px-2 py-0.5 flex items-center justify-between gap-1 sm:gap-2 text-[#F5ECD5]">
+      <header className="fixed top-0 inset-x-0 z-30 pointer-events-none px-2 lg:px-3 pt-1">
+        <div className="pointer-events-auto max-w-[1600px] mx-auto jade-hud-bar px-1.5 lg:px-2 py-0.5 flex items-center justify-between gap-2 text-[#F5ECD5]">
           {/* Left: Sect Master Avatar + Name + Power + Year */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 sm:flex-initial">
+          <div className="flex items-center gap-1.5 lg:gap-2.5 min-w-0">
             {(() => {
               const mf = master?.fashionId ? VIP_FASHIONS[master.fashionId] : null;
               return (
@@ -2010,7 +2010,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                     sfx.click();
                     setActiveModal('disciples');
                   }}
-                  className="relative shrink-0 cursor-pointer hover:scale-105 transition-transform rounded-full scale-[0.82] sm:scale-100 -mx-1 sm:mx-0"
+                  className="relative shrink-0 cursor-pointer hover:scale-105 transition-transform rounded-full scale-[0.82] lg:scale-100 -mx-1 lg:mx-0"
                   title={mf ? `${master?.name} · ${mf.name}` : 'Xem Chưởng Môn & Đệ Tử'}
                 >
                   <DisciplePortrait
@@ -2028,8 +2028,8 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
               );
             })()}
             <div className="min-w-0">
-              <div className="flex items-center gap-1 sm:gap-2">
-                <span className="hidden sm:inline font-bold text-sm text-[#FBE9B7] truncate">
+              <div className="flex items-center gap-1.5 lg:gap-2">
+                <span className="font-bold text-xs lg:text-sm text-[#FBE9B7] truncate max-w-[130px] lg:max-w-none">
                   {state.sectName}
                 </span>
                 <button
@@ -2038,11 +2038,11 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                     setVipTab('recharge');
                     setActiveModal('vip');
                   }}
-                  className="px-1.5 sm:px-2 py-0.5 rounded bg-gradient-to-r from-[#A66E14] via-[#E5B85B] to-[#A66E14] text-[#1D1306] text-[9.5px] sm:text-[10px] font-mono font-bold hover:brightness-110 cursor-pointer shrink-0 whitespace-nowrap"
+                  className="px-1.5 lg:px-2 py-0.5 rounded bg-gradient-to-r from-[#A66E14] via-[#E5B85B] to-[#A66E14] text-[#1D1306] text-[9.5px] lg:text-[10px] font-mono font-bold hover:brightness-110 cursor-pointer shrink-0 whitespace-nowrap"
                   title="Mở Điện Chí Tôn VIP"
                 >
                   VIP {vipLevel}
-                  <span className="hidden sm:inline">{vipLevel >= 20 ? ' MAX' : ''}</span>
+                  {vipLevel >= 20 ? ' MAX' : ''}
                 </button>
                 {vipLevel >= 5 && (() => {
                   const activeAutoCount =
@@ -2059,7 +2059,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                           sfx.click();
                           setShowAutoMenu((prev) => !prev);
                         }}
-                        className={`hidden sm:flex px-2 py-0.5 rounded border text-[10px] font-bold items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
+                        className={`flex px-1.5 lg:px-2 py-0.5 rounded border text-[9.5px] lg:text-[10px] font-bold items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
                           activeAutoCount > 0
                             ? 'bg-[#174834] border-[#6EE7B7]/80 text-[#E6FFF3] hover:bg-[#1E5C42]'
                             : 'bg-[#1A2F2D] border-[#C9A45C]/50 text-[#D7CBB0] hover:bg-[#233E3B]'
@@ -2074,10 +2074,10 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                       {showAutoMenu && (
                         <>
                           <div
-                            className="fixed inset-0 z-40 bg-black/25 sm:bg-transparent"
+                            className="fixed inset-0 z-40"
                             onClick={() => setShowAutoMenu(false)}
                           />
-                          <div className="fixed left-2 right-2 top-[calc(102px+env(safe-area-inset-top))] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 z-50 sm:w-64 rounded-xl bg-[#142725]/98 border-2 border-[#C9A45C] shadow-2xl p-2.5 space-y-1.5 text-xs text-[#F5ECD5]">
+                          <div className="absolute left-0 top-full mt-2 z-50 w-64 rounded-xl bg-[#142725]/98 border-2 border-[#C9A45C] shadow-2xl p-2.5 space-y-1.5 text-xs text-[#F5ECD5]">
                             <div className="flex items-center justify-between pb-1.5 border-b border-[#C9A45C]/30">
                               <span className="font-bold text-[#FCE6A6]">Tự Động Hóa VIP</span>
                               <button
@@ -2309,72 +2309,44 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
 
       </header>
 
-      {/* LEFT FLOATING STACK: COLLAPSIBLE QUESTS & SHORTCUTS (+ Mobile Auto VIP trigger) */}
-      <aside className="fixed left-1.5 sm:left-3 top-[calc(58px+env(safe-area-inset-top))] sm:top-[88px] z-20 flex flex-col pointer-events-none">
+      {/* LEFT FLOATING STACK: COLLAPSIBLE QUESTS & SHORTCUTS */}
+      <aside className="fixed left-2 lg:left-3 top-[56px] lg:top-[84px] z-20 flex flex-col pointer-events-none">
         {/* Unified Collapsible Quests & Shortcuts Drawer (collapsed by default for clean map) */}
         <div className="pointer-events-auto">
           {(() => {
             const unclaimedQuests = state.quests.filter((q) => !q.claimed);
             const readyCount = unclaimedQuests.filter((q) => q.progress >= q.target).length;
-            const activeAutoCount =
-              (state.vip.autoDiscipleEnabled ? 1 : 0) +
-              (vipLevel >= 6 && state.vip.autoSectEnabled ? 1 : 0) +
-              (vipLevel >= 7 && state.vip.autoGemEnabled ? 1 : 0) +
-              (vipLevel >= 10 && state.vip.autoWorldEnabled ? 1 : 0);
-            const maxAutoCount = vipLevel >= 10 ? 4 : vipLevel >= 7 ? 3 : vipLevel >= 6 ? 2 : 1;
             return (
               <div className="relative">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => {
-                      sfx.click();
-                      setShowQuestPanel((prev) => !prev);
-                    }}
-                    className={`w-fit flex items-center gap-1.5 sm:gap-2 shortcut-banner-btn px-1 py-0.5 text-[11px] sm:text-xs font-semibold cursor-pointer ${
-                      readyCount > 0 ? 'text-[#FDE047]' : 'text-[#FCECC8]'
+                <button
+                  onClick={() => {
+                    sfx.click();
+                    setShowQuestPanel((prev) => !prev);
+                  }}
+                  className={`w-fit flex items-center gap-1.5 lg:gap-2 shortcut-banner-btn px-1 py-0.5 text-[11px] lg:text-xs font-semibold cursor-pointer ${
+                    readyCount > 0 ? 'text-[#FDE047]' : 'text-[#FCECC8]'
+                  }`}
+                >
+                  <span
+                    className={`w-5 h-5 lg:w-6 lg:h-6 rounded-full border flex items-center justify-center shrink-0 shadow ${
+                      readyCount > 0
+                        ? 'bg-[#8A5A0F] border-[#FDE047] text-[#FFF7D6]'
+                        : 'bg-[#1D3532] border-[#E5C272] text-[#F5D687]'
                     }`}
                   >
-                    <span
-                      className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border flex items-center justify-center shrink-0 shadow ${
-                        readyCount > 0
-                          ? 'bg-[#8A5A0F] border-[#FDE047] text-[#FFF7D6]'
-                          : 'bg-[#1D3532] border-[#E5C272] text-[#F5D687]'
-                      }`}
-                    >
-                      <ScrollText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </span>
-                    <span className="whitespace-nowrap drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
-                      {readyCount > 0
-                        ? `Nhiệm Vụ (${readyCount} quà)`
-                        : unclaimedQuests.length > 0
-                          ? `Nhiệm Vụ (${unclaimedQuests.length})`
-                          : 'Tiện Ích'}
-                    </span>
-                    <ChevronDown
-                      className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#E5C272] transition-transform ${showQuestPanel ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-
-                  {vipLevel >= 5 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        sfx.click();
-                        setShowAutoMenu((prev) => !prev);
-                      }}
-                      className={`sm:hidden h-7 px-2 rounded-lg border text-[10.5px] font-bold flex items-center gap-1 shadow-md cursor-pointer transition-colors whitespace-nowrap ${
-                        activeAutoCount > 0
-                          ? 'bg-[#174834]/95 border-[#6EE7B7]/85 text-[#E6FFF3]'
-                          : 'bg-[#1A2F2D]/95 border-[#C9A45C]/70 text-[#FCECC8]'
-                      }`}
-                      title="Bảng bật/tắt Tự Động Hóa VIP"
-                    >
-                      <Bot className="w-3.5 h-3.5" />
-                      <span>{activeAutoCount}/{maxAutoCount}</span>
-                      <ChevronDown className={`w-3 h-3 transition-transform ${showAutoMenu ? 'rotate-180' : ''}`} />
-                    </button>
-                  )}
-                </div>
+                    <ScrollText className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
+                  </span>
+                  <span className="whitespace-nowrap drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+                    {readyCount > 0
+                      ? `Nhiệm Vụ (${readyCount} quà)`
+                      : unclaimedQuests.length > 0
+                        ? `Nhiệm Vụ (${unclaimedQuests.length})`
+                        : 'Tiện Ích'}
+                  </span>
+                  <ChevronDown
+                    className={`w-3 h-3 lg:w-3.5 lg:h-3.5 text-[#E5C272] transition-transform ${showQuestPanel ? 'rotate-180' : ''}`}
+                  />
+                </button>
 
                 {showQuestPanel && (
                   <div className="mt-1.5 w-[235px] sm:w-[255px] rounded-xl bg-[#142725]/96 border border-[#C9A45C]/80 shadow-xl p-2 space-y-2">
@@ -2510,9 +2482,9 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
       </aside>
 
       {/* BOTTOM-LEFT COLLAPSIBLE WORLD CHAT (stays tucked at very bottom-left corner, never covers Sơn Môn) */}
-      <div className="fixed left-2 sm:left-3 bottom-[calc(76px+env(safe-area-inset-bottom))] sm:bottom-3 z-20 flex flex-col items-start gap-1.5">
+      <div className="fixed left-2 lg:left-3 bottom-2 lg:bottom-3 z-20 flex flex-col items-start gap-1.5">
         {showChatBox && (
-          <div className="w-[240px] sm:w-[270px] rounded-lg bg-[#F5EFE0]/95 border-2 border-[#B89352] shadow-xl overflow-hidden text-[#24211C]">
+          <div className="w-[240px] lg:w-[270px] rounded-lg bg-[#F5EFE0]/95 border-2 border-[#B89352] shadow-xl overflow-hidden text-[#24211C]">
             <div className="flex items-center justify-between px-2.5 py-1 bg-[#EAE1CD] border-b border-[#D4C39F] text-[10px] font-bold text-[#4A3B23]">
               <span>Kênh Thế Giới & Tông Môn</span>
               <button
@@ -2588,7 +2560,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
       </div>
 
       {/* RIGHT FLOATING ACTION DRAWER (collapsed by default to keep waterfall clear) */}
-      <aside className="fixed right-1.5 sm:right-3 top-[calc(58px+env(safe-area-inset-top))] sm:top-[88px] z-20 flex flex-col items-end gap-1.5">
+      <aside className="fixed right-2 lg:right-3 top-[56px] lg:top-[84px] z-20 flex flex-col items-end gap-1.5">
         {(() => {
           const rightAlerts =
             unclaimedVipCount + (hasOfflineReady ? 1 : 0) + (!state.dailyGiftClaimed ? 1 : 0);
@@ -2710,8 +2682,8 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
       </aside>
 
       {/* BOTTOM NAVIGATION DOCK (Hand-drawn Xianxia medallions + scroll compass THẾ GIỚI button) */}
-      <nav className="fixed bottom-[max(0.25rem,env(safe-area-inset-bottom))] sm:bottom-2.5 inset-x-1.5 sm:left-auto sm:right-4 z-20 flex items-end justify-center sm:justify-end gap-1.5 sm:gap-2.5 pointer-events-none">
-        <div className="pointer-events-auto w-full sm:w-auto grid grid-cols-5 sm:flex sm:items-end gap-0.5 sm:gap-2">
+      <nav className="fixed bottom-1 lg:bottom-2.5 right-2 lg:right-4 z-20 flex items-end justify-end gap-1 lg:gap-2.5 pointer-events-none">
+        <div className="pointer-events-auto flex items-end gap-1 lg:gap-2">
           {[
             {
               label: 'Xây Dựng',
@@ -2761,16 +2733,16 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
             <button
               key={nav.label}
               onClick={nav.onClick}
-              className="flex flex-col items-center cursor-pointer group min-w-0"
+              className="flex flex-col items-center cursor-pointer group shrink-0"
             >
               <img
                 src={nav.sprite}
                 alt={nav.label}
                 draggable={false}
                 style={{ clipPath: 'inset(0 0 18% 0)' }}
-                className="w-11 h-11 sm:w-16 sm:h-16 object-contain hud-icon-medallion"
+                className="w-11 h-11 lg:w-16 lg:h-16 object-contain hud-icon-medallion"
               />
-              <span className="relative z-10 -mt-3.5 sm:-mt-5 hud-label-scroll w-full max-w-[70px] sm:w-auto sm:min-w-[84px] h-[22px] sm:h-[27px] px-1 sm:px-2.5 pt-0.5 sm:pt-1 flex items-center justify-center text-[9px] sm:text-[11px] font-bold text-[#351F09] whitespace-nowrap leading-none">
+              <span className="relative z-10 -mt-3.5 lg:-mt-5 hud-label-scroll min-w-[60px] lg:min-w-[84px] h-[20px] lg:h-[27px] px-1.5 lg:px-2.5 pt-0.5 lg:pt-1 flex items-center justify-center text-[9px] lg:text-[11px] font-bold text-[#351F09] whitespace-nowrap leading-none">
                 {nav.label}
               </span>
             </button>
@@ -2783,17 +2755,17 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
               setWorldTab('bosses');
               setActiveModal('world');
             }}
-            className="hidden sm:flex flex-col items-center justify-end cursor-pointer group ml-1"
+            className="flex flex-col items-center justify-end cursor-pointer group ml-0.5 lg:ml-1 shrink-0"
             title="Mở Bản Đồ Thế Giới & Săn Boss Huyền Thoại"
           >
             <img
               src="./assets/sprites/hud/the_gioi.png"
               alt="THẾ GIỚI"
               draggable={false}
-              className="w-28 h-[86px] object-contain hud-icon-medallion"
+              className="w-16 h-[50px] lg:w-28 lg:h-[86px] object-contain hud-icon-medallion"
             />
             <span
-              className="relative z-10 -mt-3 hud-label-scroll min-w-[96px] h-[28px] px-3 pt-1 flex items-center justify-center text-xs font-extrabold tracking-wide text-[#2C1806] whitespace-nowrap leading-none"
+              className="relative z-10 -mt-2 lg:-mt-3 hud-label-scroll min-w-[66px] lg:min-w-[96px] h-[20px] lg:h-[28px] px-1.5 lg:px-3 pt-0.5 lg:pt-1 flex items-center justify-center text-[9.5px] lg:text-xs font-extrabold tracking-wide text-[#2C1806] whitespace-nowrap leading-none"
               style={{ fontFamily: 'var(--font-display)' }}
             >
               THẾ GIỚI

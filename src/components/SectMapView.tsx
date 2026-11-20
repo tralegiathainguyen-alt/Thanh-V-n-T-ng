@@ -287,20 +287,22 @@ const RESOURCE_LABELS: Record<string, string> = {
   dotPhaDan: 'Đột Phá Đan',
 };
 
+function isForcedLandscape(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerHeight > window.innerWidth && window.innerWidth <= 900;
+}
+
+function toLocalPoint(clientX: number, clientY: number, rect?: DOMRect | null) {
+  if (!rect) return { x: clientX, y: clientY };
+  if (isForcedLandscape()) {
+    return { x: clientY - rect.top, y: rect.right - clientX };
+  }
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
 function computeBaseStage(cw: number, ch: number) {
   const safeW = Math.max(cw, 320);
   const safeH = Math.max(ch, 240);
-  const isPortraitMobile = safeW < safeH && safeW < 768;
-
-  if (isPortraitMobile) {
-    // Fit the ENTIRE sect panorama width on portrait phones so players see all buildings at once
-    const width = safeW;
-    const height = width / MAP_ASPECT;
-    const defaultLeft = 0;
-    const defaultTop = Math.max(0, (safeH - height * MAP_VISIBLE_H_RATIO) * 0.48);
-    return { cw: safeW, ch: safeH, width, height, defaultLeft, defaultTop, isPortraitMobile: true };
-  }
-
   const minHForHeight = safeH / MAP_VISIBLE_H_RATIO;
   const minHForWidth = safeW / MAP_ASPECT;
   const height = Math.max(minHForHeight, minHForWidth);
@@ -310,22 +312,15 @@ function computeBaseStage(cw: number, ch: number) {
   // Bias default horizontal framing toward right so both Sơn Môn and Tàng Kinh Các stay visible
   const defaultLeft = -overflowX * 0.92;
   const defaultTop = -overflowY * 0.35;
-  return { cw: safeW, ch: safeH, width, height, defaultLeft, defaultTop, isPortraitMobile: false };
+  return { cw: safeW, ch: safeH, width, height, defaultLeft, defaultTop };
 }
 
 function clampPosition(left: number, top: number, stageW: number, stageH: number, cw: number, ch: number) {
-  const visibleH = stageH * MAP_VISIBLE_H_RATIO;
-  const clampedLeft =
-    stageW <= cw
-      ? (cw - stageW) / 2
-      : Math.min(0, Math.max(cw - stageW, left));
-  const clampedTop =
-    visibleH <= ch
-      ? (ch - visibleH) * 0.48
-      : Math.min(0, Math.max(ch - visibleH, top));
+  const minLeft = Math.min(0, cw - stageW);
+  const minTop = Math.min(0, ch - stageH * MAP_VISIBLE_H_RATIO);
   return {
-    left: clampedLeft,
-    top: clampedTop,
+    left: Math.min(0, Math.max(minLeft, left)),
+    top: Math.min(0, Math.max(minTop, top)),
   };
 }
 
@@ -386,20 +381,27 @@ export function SectMapView({
     centerImgY: number;
   } | null>(null);
 
-  // Measure container size
+  // Measure unrotated container size (clientWidth/clientHeight stay true landscape even under CSS rotate(90deg))
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const update = () => {
-      const rect = el.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        setViewport({ cw: rect.width, ch: rect.height });
+      const cw = el.clientWidth;
+      const ch = el.clientHeight;
+      if (cw > 0 && ch > 0) {
+        setViewport({ cw, ch });
       }
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
   }, []);
 
   const base = useMemo(() => computeBaseStage(viewport.cw, viewport.ch), [viewport.cw, viewport.ch]);
@@ -421,16 +423,15 @@ export function SectMapView({
     const { base: b, stageW: curW, stageH: curH, left: curLeft, top: curTop } = geomRef.current;
     const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(nextZoomRaw.toFixed(3))));
     const rect = el?.getBoundingClientRect();
-    const localX = rect ? clientX - rect.left : b.cw / 2;
-    const localY = rect ? clientY - rect.top : b.ch / 2;
+    const pt = rect ? toLocalPoint(clientX, clientY, rect) : { x: b.cw / 2, y: b.ch / 2 };
 
-    const imgRatioX = (localX - curLeft) / curW;
-    const imgRatioY = (localY - curTop) / curH;
+    const imgRatioX = (pt.x - curLeft) / curW;
+    const imgRatioY = (pt.y - curTop) / curH;
 
     const nextW = b.width * nextZoom;
     const nextH = b.height * nextZoom;
-    const nextLeft = localX - imgRatioX * nextW;
-    const nextTop = localY - imgRatioY * nextH;
+    const nextLeft = pt.x - imgRatioX * nextW;
+    const nextTop = pt.y - imgRatioY * nextH;
 
     setIsSmoothZoom(smooth);
     setZoom(nextZoom);
@@ -471,16 +472,15 @@ export function SectMapView({
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if ((e.target as HTMLElement).closest('[data-camera-control="true"]')) return;
 
-    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const rect = containerRef.current?.getBoundingClientRect();
+    const pt = toLocalPoint(e.clientX, e.clientY, rect);
+    activePointersRef.current.set(e.pointerId, { x: pt.x, y: pt.y });
 
     if (activePointersRef.current.size === 2) {
       const pts = Array.from(activePointersRef.current.values());
       const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
-      const midX = (pts[0].x + pts[1].x) / 2;
-      const midY = (pts[0].y + pts[1].y) / 2;
-      const rect = containerRef.current?.getBoundingClientRect();
-      const localX = rect ? midX - rect.left : midX;
-      const localY = rect ? midY - rect.top : midY;
+      const localX = (pts[0].x + pts[1].x) / 2;
+      const localY = (pts[0].y + pts[1].y) / 2;
       const { stageW: curW, stageH: curH, left: curLeft, top: curTop, zoom: curZoom } = geomRef.current;
       pinchRef.current = {
         initialDist: Math.max(10, dist),
@@ -497,8 +497,8 @@ export function SectMapView({
     dragRef.current = {
       active: true,
       pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
+      startX: pt.x,
+      startY: pt.y,
       origLeft: left,
       origTop: top,
       moved: false,
@@ -506,18 +506,17 @@ export function SectMapView({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    const pt = toLocalPoint(e.clientX, e.clientY, rect);
     if (activePointersRef.current.has(e.pointerId)) {
-      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      activePointersRef.current.set(e.pointerId, { x: pt.x, y: pt.y });
     }
 
     if (activePointersRef.current.size === 2 && pinchRef.current) {
       const pts = Array.from(activePointersRef.current.values());
       const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
-      const midX = (pts[0].x + pts[1].x) / 2;
-      const midY = (pts[0].y + pts[1].y) / 2;
-      const rect = containerRef.current?.getBoundingClientRect();
-      const localX = rect ? midX - rect.left : midX;
-      const localY = rect ? midY - rect.top : midY;
+      const localX = (pts[0].x + pts[1].x) / 2;
+      const localY = (pts[0].y + pts[1].y) / 2;
       const { base: b } = geomRef.current;
       const nextZoom = Math.min(
         MAX_ZOOM,
@@ -534,8 +533,8 @@ export function SectMapView({
     }
 
     if (!dragRef.current.active || dragRef.current.pointerId !== e.pointerId) return;
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
+    const dx = pt.x - dragRef.current.startX;
+    const dy = pt.y - dragRef.current.startY;
     if (!dragRef.current.moved && Math.hypot(dx, dy) > 6) {
       dragRef.current.moved = true;
       setIsDragging(true);
@@ -1809,21 +1808,6 @@ export function SectMapView({
         isDragging ? 'cursor-grabbing' : canPan ? 'cursor-grab' : 'cursor-default'
       }`}
     >
-      {/* Atmospheric Xianxia golden sky & cloud sea backdrop for portrait mobile full-sect view */}
-      {base.isPortraitMobile && (
-        <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-[#3A3528] via-[#C8AD7A]/45 to-[#162826]" />
-          <img
-            src="./assets/aistudio/1_80f8120e.png"
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className="w-full h-full object-cover scale-125 blur-xl opacity-65 saturate-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#172826]/75 via-transparent to-[#112220]/85" />
-        </div>
-      )}
-
       {/* Aspect-locked stage: background art + occluders + VFX canvas + buildings + disciples share 100% identical coordinates */}
       <div
         className={`absolute z-0 isolate ${isSmoothZoom ? 'transition-[left,top,width,height] duration-200 ease-out' : ''}`}
@@ -1832,14 +1816,6 @@ export function SectMapView({
           height: `${stageH}px`,
           left: `${resolvedPos.left}px`,
           top: `${resolvedPos.top}px`,
-          ...(base.isPortraitMobile && zoom <= 1.05
-            ? {
-                WebkitMaskImage:
-                  'linear-gradient(to bottom, transparent 0%, black 7%, black 88%, transparent 94%)',
-                maskImage:
-                  'linear-gradient(to bottom, transparent 0%, black 7%, black 88%, transparent 94%)',
-              }
-            : {}),
         }}
       >
         {/* Clean 16:9 Isometric Sect Panorama (bottom 6.8% baked-in border cropped cleanly) */}
@@ -2117,7 +2093,7 @@ export function SectMapView({
       {/* Compact Camera Zoom Controls (positioned cleanly along bottom-left utility strip) */}
       <div
         data-camera-control="true"
-        className="absolute bottom-[calc(76px+env(safe-area-inset-bottom))] right-2 sm:bottom-3 sm:left-[126px] sm:right-auto z-20 flex items-center gap-0.5 rounded-lg bg-[#152826]/92 border border-[#C9A45C]/70 px-1 py-0.5 text-[#F6EBD0] shadow-lg backdrop-blur-xs"
+        className="absolute bottom-2 left-[116px] lg:bottom-3 lg:left-[126px] z-20 flex items-center gap-0.5 rounded-lg bg-[#152826]/92 border border-[#C9A45C]/70 px-1 py-0.5 text-[#F6EBD0] shadow-lg backdrop-blur-xs"
       >
         <button
           type="button"

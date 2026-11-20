@@ -1025,7 +1025,7 @@ export function ScrollModalShell({
       onClick={onClose}
     >
       <div
-        className={`relative w-full ${maxWidth} max-h-[92dvh] flex flex-col scroll-parchment`}
+        className={`relative w-full ${maxWidth} max-h-[94%] flex flex-col scroll-parchment`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top ornate dark-jade scroll header seated neatly inside the scroll */}

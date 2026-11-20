@@ -625,7 +625,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
   const deckAlly = activeUnit?.isAlly ? activeUnit : allies.find((a) => a.hp > 0) || allies[0];
 
   return (
-    <div className="fixed inset-0 h-[100dvh] z-50 flex flex-col bg-[#0D1A19] text-[#F5ECD8] overflow-hidden">
+    <div className="fixed inset-0 h-full z-50 flex flex-col bg-[#0D1A19] text-[#F5ECD8] overflow-hidden">
       {/* 1. TOP HUD BAR */}
       <header className="relative z-20 flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[#0F201F]/95 border-b border-[#C9A45C]/55 shadow-lg shrink-0">
         {/* Left: Turn Counter + Battle Name */}

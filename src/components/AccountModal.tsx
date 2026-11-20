@@ -176,7 +176,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-3 sm:p-4">
-      <div className="scroll-parchment w-full max-w-xl max-h-[90vh] flex flex-col text-[#24211C] overflow-hidden">
+      <div className="scroll-parchment w-full max-w-xl max-h-[92%] flex flex-col text-[#24211C] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#D2BE98]">
           <div className="flex items-center gap-2.5">

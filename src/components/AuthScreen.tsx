@@ -158,7 +158,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#0E1C1B] flex items-center justify-center p-4">
+    <div className="relative h-full w-full overflow-y-auto bg-[#0E1C1B] flex items-center justify-center p-3 sm:p-4">
       {/* Scenic Xianxia Backdrop */}
       <img
         src="./assets/aistudio/1_80f8120e.png"

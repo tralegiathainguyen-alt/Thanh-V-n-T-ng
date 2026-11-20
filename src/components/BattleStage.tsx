@@ -272,19 +272,27 @@ export const BattleStage: React.FC<BattleStageProps> = ({
   fastMode,
   onSelectTarget,
 }) => {
-  const [viewportW, setViewportW] = useState<number>(() =>
-    typeof window !== 'undefined' ? window.innerWidth : 1280,
-  );
+  const getEffectiveWidth = () => {
+    if (typeof window === 'undefined') return 1280;
+    const isForced = window.innerHeight > window.innerWidth && window.innerWidth <= 900;
+    return isForced ? window.innerHeight : window.innerWidth;
+  };
+
+  const [viewportW, setViewportW] = useState<number>(getEffectiveWidth);
 
   useEffect(() => {
-    const onResize = () => setViewportW(window.innerWidth);
+    const onResize = () => setViewportW(getEffectiveWidth());
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
   }, []);
 
   const isMobile = viewportW < 640;
   const isTablet = viewportW >= 640 && viewportW < 1024;
-  const responsiveUnitScale = isMobile ? 0.68 : isTablet ? 0.85 : 1.0;
+  const responsiveUnitScale = isMobile ? 0.68 : isTablet ? 0.78 : 1.0;
 
   const arenaSpec = resolveArenaSpec(mode, targetId, bossId, arenaKey);
   const { bgUrl: arenaBgUrl, floor } = arenaSpec;
