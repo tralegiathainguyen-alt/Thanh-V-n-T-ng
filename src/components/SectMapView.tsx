@@ -311,6 +311,7 @@ export function SectMapView({
   onOpenDisciples,
 }: SectMapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const groundVfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const vfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [viewport, setViewport] = useState(() =>
     typeof window !== 'undefined'
@@ -1003,6 +1004,11 @@ export function SectMapView({
 
       // Render 60fps Elemental Flight Trails, Per-Building Signature Hover VFX, Ground Qi Ripples & Particles
       const canvas = vfxCanvasRef.current;
+      const groundCanvas = groundVfxCanvasRef.current;
+      const groundCtx = groundCanvas ? groundCanvas.getContext('2d') : null;
+      if (groundCtx) {
+        groundCtx.clearRect(0, 0, VFX_W, VFX_H);
+      }
       if (canvas) {
         const ctx = canvas.getContext('2d');
         if (ctx) {
@@ -1385,56 +1391,61 @@ export function SectMapView({
               flicker = 0.88 + Math.sin(sec * 1.9 + w.phase) * 0.1;
             }
 
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
+            const ringCtx = groundCtx || ctx;
+            ringCtx.save();
+            ringCtx.globalCompositeOperation = 'lighter';
 
-            // Ambient floor PointLight reflection beneath feet
+            // Ambient floor PointLight reflection beneath feet (drawn on ground layer UNDERNEATH feet)
             const lightR = aura.ringRadius * 1.45;
-            ctx.save();
-            ctx.translate(cx, cy - 1);
-            ctx.scale(1, 0.44);
-            const floorGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, lightR);
+            ringCtx.save();
+            ringCtx.translate(cx, cy + 2);
+            ringCtx.scale(1, 0.44);
+            const floorGrad = ringCtx.createRadialGradient(0, 0, 2, 0, 0, lightR);
             floorGrad.addColorStop(0, aura.glowRgba);
             floorGrad.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = floorGrad;
-            ctx.globalAlpha = Math.min(0.85, (0.36 + aura.tier * 0.06) * flicker);
-            ctx.beginPath();
-            ctx.arc(0, 0, lightR, 0, Math.PI * 2);
-            ctx.fill();
+            ringCtx.fillStyle = floorGrad;
+            ringCtx.globalAlpha = Math.min(0.85, (0.36 + aura.tier * 0.06) * flicker);
+            ringCtx.beginPath();
+            ringCtx.arc(0, 0, lightR, 0, Math.PI * 2);
+            ringCtx.fill();
 
             if (ringImg && ringImg.complete && ringImg.naturalWidth > 0) {
               const drawD = aura.ringRadius * 2.05;
               // Secondary counter-rotating aura layer (1.12x scale, additive glow)
-              ctx.save();
-              ctx.rotate(auraAngle);
-              ctx.globalCompositeOperation = 'lighter';
-              ctx.globalAlpha = Math.min(0.65, (0.34 + aura.tier * 0.04) * flicker);
+              ringCtx.save();
+              ringCtx.rotate(auraAngle);
+              ringCtx.globalCompositeOperation = 'lighter';
+              ringCtx.globalAlpha = Math.min(0.65, (0.34 + aura.tier * 0.04) * flicker);
               const auraD = drawD * auraScale;
-              ctx.drawImage(ringImg, -auraD / 2, -auraD / 2, auraD, auraD);
-              ctx.restore();
+              ringCtx.drawImage(ringImg, -auraD / 2, -auraD / 2, auraD, auraD);
+              ringCtx.restore();
 
               // Primary crisp transparent VFX ring layer
-              ctx.save();
-              ctx.rotate(mainAngle);
-              ctx.globalCompositeOperation = 'source-over';
-              ctx.globalAlpha = Math.min(0.96, (0.78 + aura.tier * 0.025) * flicker);
-              ctx.drawImage(ringImg, -drawD / 2, -drawD / 2, drawD, drawD);
+              ringCtx.save();
+              ringCtx.rotate(mainAngle);
+              ringCtx.globalCompositeOperation = 'source-over';
+              ringCtx.globalAlpha = Math.min(0.96, (0.78 + aura.tier * 0.025) * flicker);
+              ringCtx.drawImage(ringImg, -drawD / 2, -drawD / 2, drawD, drawD);
               // Additive HDR bloom pass on top for glowing radiance
-              ctx.globalCompositeOperation = 'lighter';
-              ctx.globalAlpha = Math.min(0.75, (0.28 + aura.tier * 0.055) * flicker);
-              ctx.drawImage(ringImg, -drawD * 0.525, -drawD * 0.525, drawD * 1.05, drawD * 1.05);
-              ctx.restore();
+              ringCtx.globalCompositeOperation = 'lighter';
+              ringCtx.globalAlpha = Math.min(0.75, (0.28 + aura.tier * 0.055) * flicker);
+              ringCtx.drawImage(ringImg, -drawD * 0.525, -drawD * 0.525, drawD * 1.05, drawD * 1.05);
+              ringCtx.restore();
             } else {
               // Brief fallback while sprite loads
-              ctx.rotate(mainAngle);
-              ctx.strokeStyle = aura.primary;
-              ctx.globalAlpha = 0.45;
-              ctx.lineWidth = 1.6;
-              ctx.beginPath();
-              ctx.arc(0, 0, aura.ringRadius, 0, Math.PI * 2);
-              ctx.stroke();
+              ringCtx.rotate(mainAngle);
+              ringCtx.strokeStyle = aura.primary;
+              ringCtx.globalAlpha = 0.45;
+              ringCtx.lineWidth = 1.6;
+              ringCtx.beginPath();
+              ringCtx.arc(0, 0, aura.ringRadius, 0, Math.PI * 2);
+              ringCtx.stroke();
             }
-            ctx.restore();
+            ringCtx.restore();
+            ringCtx.restore();
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
 
             // Orbiting luminous spirit beads (cosmic_orbit / rune_circle / lightning_fire)
             const orbCount = aura.vfxGroup === 'smoke_water' ? 1 : Math.min(4, 1 + Math.floor(aura.tier / 2));
@@ -1795,7 +1806,15 @@ export function SectMapView({
           />
         ))}
 
-        {/* Layer 1 & 2: 60fps Canvas VFX Layer (Flight Trails, Footstep Dust, Takeoff/Landing Qi Rings & Autumn Maple Leaves) */}
+        {/* Ground VFX Layer (z-[60]): Drawn UNDERNEATH disciples so magic rings sit beneath feet without covering legs */}
+        <canvas
+          ref={groundVfxCanvasRef}
+          width={VFX_W}
+          height={VFX_H}
+          className="pointer-events-none absolute inset-0 w-full h-full z-[60]"
+        />
+
+        {/* Layer 1 & 2: 60fps Foreground Canvas VFX Layer (Flight Trails, Orbiting Orbs, Lightning, Footstep Dust & Autumn Maple Leaves) */}
         <canvas
           ref={vfxCanvasRef}
           width={VFX_W}
