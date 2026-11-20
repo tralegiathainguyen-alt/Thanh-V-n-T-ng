@@ -584,6 +584,7 @@ export function DisciplePortrait({
   borderColor,
   fullBody = false,
   animMode = 'idle',
+  hideAura = false,
   className = '',
 }: {
   discipleId?: string;
@@ -597,6 +598,7 @@ export function DisciplePortrait({
   borderColor?: string;
   fullBody?: boolean;
   animMode?: SpriteAnimMode;
+  hideAura?: boolean;
   className?: string;
 }) {
   const spriteUrl = getDiscipleSpriteUrl(name, element);
@@ -631,39 +633,25 @@ export function DisciplePortrait({
             style={{ background: fashion.bgGradient }}
           />
         )}
-        {!fashion && realmAura && (() => {
+        {!fashion && realmAura && !hideAura && (() => {
           const ringPreset = getVfxRingPreset(realmAura.vfxRingId);
           return (
-            <>
-              <div
-                className="absolute inset-1 rounded-full opacity-45 blur-sm pointer-events-none"
-                style={{
-                  background: `radial-gradient(circle, ${realmAura.secondary}55 0%, ${realmAura.primary}38 55%, transparent 75%)`,
-                }}
-              />
+            <div
+              className="absolute left-1/2 -bottom-2 -translate-x-1/2 w-[115%] aspect-square pointer-events-none z-0"
+              style={{ transform: 'scaleY(0.38)' }}
+            >
               <img
                 src={ringPreset.transparentUrl}
                 alt=""
                 aria-hidden="true"
                 draggable={false}
-                className="absolute inset-x-0 -bottom-2 w-full aspect-square object-contain pointer-events-none opacity-95 animate-spin"
+                className="w-full h-full object-contain opacity-90 animate-spin"
                 style={{
-                  transform: 'scaleY(0.42)',
                   animationDuration: `${Math.max(4, Math.round(14 / Math.max(0.35, ringPreset.defaultSpeed)))}s`,
                   filter: `drop-shadow(0 0 6px ${realmAura.glowRgba})`,
                 }}
               />
-              <img
-                src={ringPreset.auraTransparentUrl}
-                alt=""
-                aria-hidden="true"
-                draggable={false}
-                className="absolute inset-0 z-20 w-full h-full object-contain pointer-events-none opacity-75 animate-pulse"
-                style={{
-                  filter: `drop-shadow(0 0 5px ${realmAura.glowRgba})`,
-                }}
-              />
-            </>
+            </div>
           );
         })()}
         <div

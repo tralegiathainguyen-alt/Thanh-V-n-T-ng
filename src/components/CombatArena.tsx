@@ -528,9 +528,11 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     });
     setImpactVfx({
       id: Date.now(),
+      casterId: acting.id,
       targetIds: vfxTargets,
       element: skill.element,
       vfxType: skill.vfxType,
+      targetType: skill.target,
       isAoE: skill.target !== 'single',
     });
     setHitUnitIds(hitIds);
@@ -728,6 +730,8 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
 
       {/* 2. CENTER 2.5D LIVE BATTLE STAGE (~70% screen) */}
       <BattleStage
+        mode={context.mode}
+        bossId={context.bossDef?.id}
         allies={allies}
         enemies={enemies}
         activeUnitId={activeUnit?.id}

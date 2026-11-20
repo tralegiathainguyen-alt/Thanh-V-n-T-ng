@@ -3,18 +3,22 @@ import { ELEMENT_META } from '../data/constants';
 import { ElementType, SkillDef, SpiritRootGrade } from '../types/game';
 import { formatNum, getElementRelation } from '../utils/gameLogic';
 import { getVfxRingIndexForRealm, getVfxRingPreset } from '../data/vfxRings';
+import { getVfxAuraIndexForRealm } from '../data/vfxAuras';
+import { CharacterAuraVFX } from './CharacterAuraVFX';
 import { DisciplePortrait, ElementSeal, EnemyUnitSprite, SkillIcon } from './ElementIcons';
 import { ChevronDown, Shield } from 'lucide-react';
 
 /**
- * Sprite asset checklist for BattleStage (all currently wired to transparent PNGs):
+ * Sprite & Arena asset checklist for BattleStage:
+ * - Boss Arena Backgrounds:
+ *   - boss_kiem_ma:  ./assets/arenas/arena_boss_kiem_ma.jpg  (Kiếm Trủng Hoang Cổ)
+ *   - boss_cuu_vi:   ./assets/arenas/arena_boss_cuu_vi.jpg   (Xích Viêm Thanh Hồ Điện)
+ *   - boss_huyen_vu: ./assets/arenas/arena_boss_huyen_vu.jpg (Bắc Hải Huyền Vũ Đảo)
+ *   - boss_ma_long:  ./assets/arenas/arena_boss_ma_long.jpg  (Xích Diễm Long Uyên Đài)
  * - Allies (4x4 animated chibi sheets): ./assets/sprites/characters/*_sheet.png
- *   (diep_thanh_van, kim_nu, thuy_nam, to_bang_tam, moc_nam, lam_thanh_dao, tieu_xich_viem, hoa_nu, tho_nam, tho_nu)
- * - Legendary Bosses: ./assets/sprites/bosses/boss_{cuu_vi,huyen_vu,kiem_ma,ma_long}.png
- * - Secret Realm Monsters: ./assets/sprites/monsters/e1.png .. e15.png
- * - Spirit Vein Guardians: ./assets/sprites/guardians/vg1.png .. vg10.png
- * - Transparent VFX impact/ground rings: ./assets/vfx_rings/transparent/ring_01.png .. ring_16.png
- * If any custom enemy/boss ID is added later without a matching PNG, EnemyUnitSprite renders a clean emblem fallback.
+ * - Bosses / Monsters / Guardians: ./assets/sprites/{bosses,monsters,guardians}/*.png
+ * - Transparent VFX ground rings: ./assets/vfx_rings/transparent/ring_01.png .. ring_16.png
+ * - Seamless 3D helical body ribbons: ./assets/vfx_ribbons/ribbon_01.png .. ribbon_12.png
  */
 
 export interface StageCombatUnit {
@@ -52,9 +56,11 @@ export interface StageFloatingText {
 
 export interface StageImpactVfx {
   id: number;
+  casterId: string;
   targetIds: string[];
   element: ElementType;
   vfxType: SkillDef['vfxType'];
+  targetType: SkillDef['target'];
   isAoE: boolean;
 }
 
@@ -75,49 +81,65 @@ export interface FormationCoord {
   y: number; // % top
 }
 
+const BOSS_ARENA_BG: Record<string, string> = {
+  boss_kiem_ma: './assets/arenas/arena_boss_kiem_ma.jpg',
+  boss_cuu_vi: './assets/arenas/arena_boss_cuu_vi.jpg',
+  boss_huyen_vu: './assets/arenas/arena_boss_huyen_vu.jpg',
+  boss_ma_long: './assets/arenas/arena_boss_ma_long.jpg',
+};
+
+function resolveArenaBackdrop(mode: 'realm' | 'boss' | 'vein', bossId?: string): string {
+  if (mode === 'boss' && bossId && BOSS_ARENA_BG[bossId]) {
+    return BOSS_ARENA_BG[bossId];
+  }
+  if (mode === 'realm') {
+    return './assets/arenas/arena_boss_kiem_ma.jpg';
+  }
+  return './assets/aistudio/1_80f8120e.png';
+}
+
 // 2.5D Curved Formation (2 front row, 3 back row) for Allies (left)
 const ALLY_SLOTS: FormationCoord[] = [
-  { x: 32, y: 46 }, // Front top
-  { x: 34, y: 69 }, // Front bottom
-  { x: 17, y: 36 }, // Back top
-  { x: 14, y: 57 }, // Back mid
-  { x: 19, y: 78 }, // Back bottom
+  { x: 33, y: 50 }, // Front top
+  { x: 35, y: 71 }, // Front bottom
+  { x: 18, y: 42 }, // Back top
+  { x: 15, y: 60 }, // Back mid
+  { x: 20, y: 79 }, // Back bottom
 ];
 
 // 2.5D Curved Formation (2 front row, 3 back row) for Enemies (right)
 const ENEMY_SLOTS: FormationCoord[] = [
-  { x: 68, y: 46 }, // Front top
-  { x: 66, y: 69 }, // Front bottom
-  { x: 83, y: 36 }, // Back top
-  { x: 86, y: 57 }, // Back mid
-  { x: 81, y: 78 }, // Back bottom
+  { x: 67, y: 50 }, // Front top
+  { x: 65, y: 71 }, // Front bottom
+  { x: 82, y: 42 }, // Back top
+  { x: 85, y: 60 }, // Back mid
+  { x: 80, y: 79 }, // Back bottom
 ];
 
-const SINGLE_BOSS_SLOT: FormationCoord = { x: 74, y: 57 };
+const SINGLE_BOSS_SLOT: FormationCoord = { x: 73, y: 60 };
 
 export function getUnitHomeCoord(unit: StageCombatUnit, indexInTeam: number, teamSize: number): FormationCoord {
   if (unit.isAlly) {
-    if (teamSize === 1) return { x: 26, y: 57 };
-    if (teamSize === 2) return indexInTeam === 0 ? { x: 29, y: 47 } : { x: 29, y: 69 };
+    if (teamSize === 1) return { x: 26, y: 60 };
+    if (teamSize === 2) return indexInTeam === 0 ? { x: 30, y: 51 } : { x: 30, y: 71 };
     if (teamSize === 3) {
       const map3 = [
-        { x: 32, y: 57 },
-        { x: 17, y: 42 },
-        { x: 18, y: 72 },
+        { x: 33, y: 60 },
+        { x: 18, y: 46 },
+        { x: 19, y: 74 },
       ];
       return map3[indexInTeam] || ALLY_SLOTS[indexInTeam % ALLY_SLOTS.length];
     }
     return ALLY_SLOTS[indexInTeam % ALLY_SLOTS.length];
   }
 
-  // Enemies
   if (teamSize === 1) return SINGLE_BOSS_SLOT;
-  if (teamSize === 2) return indexInTeam === 0 ? { x: 71, y: 47 } : { x: 71, y: 69 };
+  if (teamSize === 2) return indexInTeam === 0 ? { x: 70, y: 51 } : { x: 70, y: 71 };
   if (teamSize === 3) {
     const map3 = [
-      { x: 68, y: 57 },
-      { x: 83, y: 42 },
-      { x: 82, y: 72 },
+      { x: 67, y: 60 },
+      { x: 82, y: 46 },
+      { x: 81, y: 74 },
     ];
     return map3[indexInTeam] || ENEMY_SLOTS[indexInTeam % ENEMY_SLOTS.length];
   }
@@ -133,6 +155,8 @@ const ELEMENT_RING_ID: Record<ElementType, number> = {
 };
 
 interface BattleStageProps {
+  mode: 'realm' | 'boss' | 'vein';
+  bossId?: string;
   allies: StageCombatUnit[];
   enemies: StageCombatUnit[];
   activeUnitId?: string;
@@ -150,6 +174,8 @@ interface BattleStageProps {
 }
 
 export const BattleStage: React.FC<BattleStageProps> = ({
+  mode,
+  bossId,
   allies,
   enemies,
   activeUnitId,
@@ -165,12 +191,25 @@ export const BattleStage: React.FC<BattleStageProps> = ({
   fastMode,
   onSelectTarget,
 }) => {
+  const arenaBgUrl = resolveArenaBackdrop(mode, bossId);
+
   const allPositioned = [
     ...allies.map((u, i) => ({ unit: u, idx: i, home: getUnitHomeCoord(u, i, allies.length) })),
     ...enemies.map((u, i) => ({ unit: u, idx: i, home: getUnitHomeCoord(u, i, enemies.length) })),
   ];
 
+  // Live coordinate map (used by Skill Beam VFX overlay)
+  const coordById = new Map<string, FormationCoord>();
+  for (const p of allPositioned) {
+    const isActing = actionAnim?.casterId === p.unit.id;
+    coordById.set(p.unit.id, {
+      x: isActing && actionAnim?.dashTo ? actionAnim.dashTo.x : p.home.x,
+      y: isActing && actionAnim?.dashTo ? actionAnim.dashTo.y : p.home.y,
+    });
+  }
+
   const moveDurClass = fastMode ? 'duration-150' : 'duration-250';
+  const casterCoord = impactVfx ? coordById.get(impactVfx.casterId) : null;
 
   return (
     <div
@@ -178,40 +217,31 @@ export const BattleStage: React.FC<BattleStageProps> = ({
         screenShake ? 'animate-combat-shake' : ''
       }`}
     >
-      {/* Bright, crisp 2.5D Xianxia Arena Backdrop (NO dark dimming veil) */}
+      {/* Dedicated Per-Boss 2.5D Xianxia Arena Backdrop */}
       <img
-        src="./assets/aistudio/1_80f8120e.png"
-        alt="Lôi Đài Thanh Vân Tiên Tông"
+        src={arenaBgUrl}
+        alt="Lôi Đài Chiến Đấu"
         draggable={false}
-        className="pointer-events-none absolute inset-0 w-full h-full object-cover object-center scale-[1.06] brightness-105 contrast-[1.03]"
+        className="pointer-events-none absolute inset-0 w-full h-full object-cover object-center"
       />
-      {/* Gentle atmospheric vignette only at outer edges so center arena stays bright & legible */}
+      {/* Subtle outer edge vignette only — keeps arena courtyard bright & crystal clear */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 76% 68% at 50% 56%, rgba(255,248,225,0.06) 0%, rgba(16,28,26,0.22) 72%, rgba(10,18,18,0.52) 100%)',
-        }}
-      />
-      {/* Subtle 2.5D Arena Courtyard Ground Ring */}
-      <div
-        className="pointer-events-none absolute left-1/2 top-[59%] -translate-x-1/2 -translate-y-1/2 w-[78%] max-w-[920px] h-[52%] rounded-[50%] border-2 border-[#FCE6A6]/30"
-        style={{
-          background:
-            'radial-gradient(ellipse at center, rgba(252,230,166,0.12) 0%, rgba(201,164,92,0.05) 60%, transparent 78%)',
-          boxShadow: 'inset 0 0 40px rgba(252,230,166,0.14)',
+            'radial-gradient(ellipse 80% 72% at 50% 58%, transparent 35%, rgba(8,14,16,0.34) 85%, rgba(6,10,12,0.58) 100%)',
         }}
       />
 
-      {/* Non-blocking Skill Callout Ribbon at Upper-Center when an Ultimate or Combo triggers */}
+      {/* Non-blocking Skill Callout Ribbon at Upper-Center */}
       {actionAnim && (actionAnim.phase === 'callout' || actionAnim.phase === 'move' || actionAnim.phase === 'impact') && (
-        <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-[900] flex flex-col items-center">
+        <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-[950] flex flex-col items-center">
           <div
             className="flex items-center gap-2.5 px-4 py-1.5 rounded-full border-2 shadow-2xl backdrop-blur-xs"
             style={{
-              backgroundColor: 'rgba(14, 28, 27, 0.86)',
+              backgroundColor: 'rgba(14, 28, 27, 0.88)',
               borderColor: ELEMENT_META[actionAnim.element].border,
-              boxShadow: `0 0 26px ${ELEMENT_META[actionAnim.element].color}88`,
+              boxShadow: `0 0 28px ${ELEMENT_META[actionAnim.element].color}99`,
             }}
           >
             <SkillIcon skillId={actionAnim.skillId} name={actionAnim.skillName} className="w-7 h-7" />
@@ -230,8 +260,55 @@ export const BattleStage: React.FC<BattleStageProps> = ({
         </div>
       )}
 
+      {/* Full-Stage Elemental Skill Projectile / Beam SVG Overlay */}
+      {impactVfx && casterCoord && (
+        <svg
+          key={`beam_${impactVfx.id}`}
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 w-full h-full z-[880]"
+        >
+          <defs>
+            <filter id="skillGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="0.9" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          {impactVfx.targetIds.map((tId, tIdx) => {
+            const tc = coordById.get(tId);
+            if (!tc || tId === impactVfx.casterId) return null;
+            const elemColor = ELEMENT_META[impactVfx.element].color;
+            const midX = (casterCoord.x + tc.x) * 0.5;
+            const midY = Math.min(casterCoord.y, tc.y) - (impactVfx.isAoE ? 14 : 6) - (tIdx % 2) * 3;
+            return (
+              <g key={tId} filter="url(#skillGlow)">
+                <path
+                  d={`M ${casterCoord.x} ${casterCoord.y - 4} Q ${midX} ${midY} ${tc.x} ${tc.y - 4}`}
+                  fill="none"
+                  stroke={elemColor}
+                  strokeWidth={impactVfx.isAoE ? '1.2' : '0.9'}
+                  strokeLinecap="round"
+                  className="animate-skill-beam"
+                />
+                <path
+                  d={`M ${casterCoord.x} ${casterCoord.y - 4} Q ${midX} ${midY} ${tc.x} ${tc.y - 4}`}
+                  fill="none"
+                  stroke="#FFFFFF"
+                  strokeWidth="0.4"
+                  strokeLinecap="round"
+                  className="animate-skill-beam"
+                />
+              </g>
+            );
+          })}
+        </svg>
+      )}
+
       {/* 2.5D Units Layer (Depth-sorted by Y-coordinate!) */}
-      <div className="relative w-full h-full max-w-[1220px] mx-auto">
+      <div className="relative w-full h-full max-w-[1260px] mx-auto">
         {allPositioned.map(({ unit: u, idx, home }) => {
           const dead = u.hp <= 0;
           const isTurn = activeUnitId === u.id && !dead;
@@ -242,12 +319,10 @@ export const BattleStage: React.FC<BattleStageProps> = ({
           const isGiantBoss = !u.isAlly && enemies.length === 1 && u.isBoss;
           const elemMeta = ELEMENT_META[u.element];
 
-          // Live position: dash to target if melee/single-target, else stay at home formation slot
           const curX = isActing && actionAnim?.dashTo ? actionAnim.dashTo.x : home.x;
           const curY = isActing && actionAnim?.dashTo ? actionAnim.dashTo.y : home.y;
           const leapY = isActing && actionAnim?.leapY ? actionAnim.leapY : 0;
 
-          // Automatic 2.5D Y-depth z-index (lower rows always render in front of upper rows)
           const zIndex = Math.round(curY * 10) + (isActing ? 450 : 0) + (isHit ? 80 : 0);
 
           const hpPct = Math.max(0, Math.min(100, (u.hp / Math.max(1, u.maxHp)) * 100));
@@ -267,7 +342,6 @@ export const BattleStage: React.FC<BattleStageProps> = ({
               ? getVfxRingPreset(getVfxRingIndexForRealm(u.realmIndex))
               : null;
 
-          // Knockback direction: enemies recoil right (+16px), allies recoil left (-16px)
           const knockbackX = isHit ? (u.isAlly ? -16 : 16) : 0;
 
           return (
@@ -293,7 +367,7 @@ export const BattleStage: React.FC<BattleStageProps> = ({
               {/* Red Target Lock Arrow above selected enemy */}
               {isSelected && (
                 <div className="pointer-events-none -mb-1 flex flex-col items-center animate-bounce z-30">
-                  <span className="px-1.5 py-0.5 rounded bg-[#B91C1C]/90 border border-[#FCA5A5] text-[9px] font-bold text-white shadow">
+                  <span className="px-1.5 py-0.5 rounded bg-[#B91C1C]/92 border border-[#FCA5A5] text-[9px] font-bold text-white shadow">
                     MỤC TIÊU
                     {relToActive === 'counter' ? ' · KHẮC +35%' : relToActive === 'resisted' ? ' · -20%' : ''}
                   </span>
@@ -303,16 +377,15 @@ export const BattleStage: React.FC<BattleStageProps> = ({
 
               {/* Compact Overhead Unit Name + HP / Shield / MP Widget */}
               <div className="pointer-events-none mb-1 flex flex-col items-center z-20">
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#101E1D]/82 border border-[#D4B06A]/45 shadow text-[10px] font-bold text-[#FAF2DE] whitespace-nowrap">
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#101E1D]/85 border border-[#D4B06A]/50 shadow text-[10px] font-bold text-[#FAF2DE] whitespace-nowrap">
                   <ElementSeal element={u.element} size="xs" />
-                  <span className="max-w-[96px] truncate">{u.name}</span>
+                  <span className="max-w-[100px] truncate">{u.name}</span>
                   {isNextCombo && (
                     <span className="w-2 h-2 rounded-full bg-[#FDE047] animate-ping" title="Sẵn sàng Liên Hoàn!" />
                   )}
                 </div>
 
-                {/* Slim HP + Shield Bar */}
-                <div className={`mt-0.5 ${isGiantBoss ? 'w-32' : 'w-20 sm:w-24'} space-y-0.5`}>
+                <div className={`mt-0.5 ${isGiantBoss ? 'w-36' : 'w-20 sm:w-24'} space-y-0.5`}>
                   <div className="relative h-2 rounded-full bg-[#091212]/90 border border-black/70 overflow-hidden shadow">
                     <div
                       className={`h-full transition-all duration-300 ${
@@ -330,7 +403,6 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                     )}
                   </div>
 
-                  {/* Slim Blue MP Bar (for Allies) */}
                   {u.isAlly && (
                     <div className="h-1 rounded-full bg-[#091212]/85 overflow-hidden">
                       <div
@@ -340,7 +412,6 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                     </div>
                   )}
 
-                  {/* Shield badge if active */}
                   {u.shield > 0 && (
                     <div className="flex justify-center">
                       <span className="inline-flex items-center gap-0.5 px-1 rounded bg-[#78350F]/90 text-[9px] font-mono text-[#FDE68A]">
@@ -352,50 +423,59 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                 </div>
               </div>
 
-              {/* Character Sprite + Ground Positioning Ring + Impact VFX */}
+              {/* Character Sprite + Flat Horizontal Ground Ring + 3D Helical Ribbon + Elemental Impact VFX */}
               <div className="relative flex items-end justify-center">
                 {/* Ground Contact Shadow */}
                 <div
-                  className={`pointer-events-none absolute -bottom-1.5 rounded-[50%] bg-black/45 blur-[3px] ${
-                    isGiantBoss ? 'w-36 h-8' : 'w-16 h-4'
+                  className={`pointer-events-none absolute -bottom-1.5 rounded-[50%] bg-black/50 blur-[3px] ${
+                    isGiantBoss ? 'w-40 h-9' : 'w-16 h-4'
                   }`}
                 />
 
-                {/* Ground Element Positioning Ring (glows brighter on active turn or target lock) */}
+                {/* TRUE FLAT ISOMETRIC GROUND VFX RING UNDER FEET (outer scaleY(0.40) + inner animate-spin!) */}
+                {allyGroundRing && (
+                  <div
+                    className="pointer-events-none absolute left-1/2 -bottom-12 -translate-x-1/2 w-28 sm:w-32 h-28 sm:h-32 z-0"
+                    style={{ transform: 'scaleY(0.40)' }}
+                  >
+                    <img
+                      src={allyGroundRing.transparentUrl}
+                      alt=""
+                      aria-hidden="true"
+                      draggable={false}
+                      className="w-full h-full object-contain animate-spin"
+                      style={{
+                        opacity: isTurn ? 0.98 : 0.78,
+                        animationDuration: `${Math.max(4, Math.round(11 / Math.max(0.35, allyGroundRing.defaultSpeed)))}s`,
+                        filter: `drop-shadow(0 0 ${isTurn ? 12 : 6}px ${allyGroundRing.glowRgba})`,
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Crisp Turn / Target Positioning Ring on Ground */}
                 <div
-                  className={`pointer-events-none absolute -bottom-2.5 rounded-[50%] transition-all duration-200 ${
-                    isGiantBoss ? 'w-44 h-12' : 'w-20 sm:w-24 h-6 sm:h-7'
+                  className={`pointer-events-none absolute -bottom-2.5 rounded-[50%] transition-all duration-200 z-[1] ${
+                    isGiantBoss ? 'w-48 h-13' : 'w-20 sm:w-24 h-6 sm:h-7'
                   }`}
                   style={{
-                    border: `${isTurn || isSelected ? 2.5 : 1.5}px solid ${
-                      isSelected ? '#EF4444' : isTurn ? '#FDE047' : elemMeta.color
+                    border: `${isTurn || isSelected ? 2.5 : 1.2}px solid ${
+                      isSelected ? '#EF4444' : isTurn ? '#FDE047' : `${elemMeta.color}99`
                     }`,
                     boxShadow: isSelected
-                      ? '0 0 18px rgba(239,68,68,0.85), inset 0 0 10px rgba(239,68,68,0.45)'
+                      ? '0 0 20px rgba(239,68,68,0.9), inset 0 0 12px rgba(239,68,68,0.45)'
                       : isTurn
-                        ? `0 0 20px ${elemMeta.color}, inset 0 0 12px rgba(253,224,71,0.5)`
-                        : `0 0 10px ${elemMeta.color}88`,
+                        ? `0 0 22px ${elemMeta.color}, inset 0 0 12px rgba(253,224,71,0.5)`
+                        : undefined,
                     background: isSelected
                       ? 'radial-gradient(ellipse at center, rgba(239,68,68,0.28) 0%, transparent 72%)'
                       : isTurn
-                        ? 'radial-gradient(ellipse at center, rgba(253,224,71,0.28) 0%, transparent 72%)'
-                        : `radial-gradient(ellipse at center, ${elemMeta.color}22 0%, transparent 72%)`,
+                        ? 'radial-gradient(ellipse at center, rgba(253,224,71,0.22) 0%, transparent 72%)'
+                        : undefined,
                   }}
                 />
 
-                {/* Subtle Transparent VFX Ring beneath high-realm Allies on their turn */}
-                {allyGroundRing && isTurn && (
-                  <img
-                    src={allyGroundRing.transparentUrl}
-                    alt=""
-                    aria-hidden="true"
-                    draggable={false}
-                    className="pointer-events-none absolute -bottom-9 w-28 h-28 object-contain opacity-85 animate-spin"
-                    style={{ transform: 'scaleY(0.4)', animationDuration: '9s' }}
-                  />
-                )}
-
-                {/* Sprite Body with Phase-Staggered Idle Breathing & Hit Flash */}
+                {/* Sprite Body with Phase-Staggered Idle Breathing, 3D Helical Ribbon & Hit Flash */}
                 <div
                   className={`relative z-10 ${!isActing && !isHit ? 'animate-combat-breathe' : ''}`}
                   style={{
@@ -404,22 +484,36 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                       ? 'brightness(2.5) saturate(0.4) drop-shadow(0 0 14px #FFFFFF)'
                       : isTurn
                         ? `drop-shadow(0 0 10px ${elemMeta.color}) drop-shadow(0 6px 8px rgba(0,0,0,0.45))`
-                        : 'drop-shadow(0 6px 8px rgba(0,0,0,0.48))',
+                        : 'drop-shadow(0 6px 8px rgba(0,0,0,0.5))',
                   }}
                 >
                   {u.isAlly ? (
-                    <DisciplePortrait
-                      discipleId={u.id}
-                      name={u.name}
-                      glyph={u.glyph}
-                      element={u.element}
-                      realmIndex={u.realmIndex}
-                      spiritRoot={u.spiritRoot}
-                      size="lg"
-                      fullBody
-                      animMode={isActing && (actionAnim?.phase === 'move' || actionAnim?.phase === 'impact') ? 'attack' : 'idle'}
-                      className="!w-20 !h-20 sm:!w-24 sm:!h-24"
-                    />
+                    <CharacterAuraVFX
+                      auraId={getVfxAuraIndexForRealm(u.realmIndex)}
+                      characterHeight={82}
+                      speed={fastMode ? 1.5 : 1.0}
+                      intensity={isTurn ? 1.05 : 0.78}
+                      phaseOffset={idx * 1.45}
+                      showParticles={true}
+                    >
+                      <DisciplePortrait
+                        discipleId={u.id}
+                        name={u.name}
+                        glyph={u.glyph}
+                        element={u.element}
+                        realmIndex={u.realmIndex}
+                        spiritRoot={u.spiritRoot}
+                        size="lg"
+                        fullBody
+                        hideAura
+                        animMode={
+                          isActing && (actionAnim?.phase === 'move' || actionAnim?.phase === 'impact')
+                            ? 'attack'
+                            : 'idle'
+                        }
+                        className="!w-20 !h-20 sm:!w-24 sm:!h-24"
+                      />
+                    </CharacterAuraVFX>
                   ) : (
                     <div
                       className={`transition-transform duration-150 ${
@@ -434,7 +528,7 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                         isBoss={u.isBoss}
                         className={
                           isGiantBoss
-                            ? 'w-36 h-36 sm:w-48 sm:h-48'
+                            ? 'w-40 h-40 sm:w-52 sm:h-52'
                             : 'w-20 h-20 sm:w-24 sm:h-24'
                         }
                       />
@@ -442,9 +536,10 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                   )}
                 </div>
 
-                {/* On-Target Skill Impact VFX Burst (Transparent RGBA PNG Ring + Glow) */}
-                {hasImpactHere && impactRingPreset && (
+                {/* Dramatic On-Target Elemental Skill VFX (Slashes, Flame Pillars, Waves, Vines, Shield Dome) */}
+                {hasImpactHere && impactVfx && impactRingPreset && (
                   <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+                    {/* Expanding Transparent Magic Ring Impact */}
                     <img
                       src={impactRingPreset.transparentUrl}
                       alt=""
@@ -454,9 +549,108 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                         isGiantBoss ? 'w-56 h-56' : 'w-32 h-32'
                       }`}
                       style={{
-                        filter: `drop-shadow(0 0 16px ${ELEMENT_META[impactVfx!.element].color})`,
+                        filter: `drop-shadow(0 0 18px ${ELEMENT_META[impactVfx.element].color})`,
                       }}
                     />
+
+                    {/* Element-Specific Signature Skill Graphics */}
+                    {impactVfx.vfxType === 'sword' && (
+                      <svg
+                        viewBox="0 0 120 120"
+                        className={`absolute left-1/2 top-1/2 animate-skill-slash ${
+                          isGiantBoss ? 'w-52 h-52' : 'w-32 h-32'
+                        }`}
+                      >
+                        <path
+                          d="M 12 104 Q 60 54 108 12"
+                          stroke="#FEF08A"
+                          strokeWidth="7"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                        <path
+                          d="M 18 22 Q 62 62 104 102"
+                          stroke="#F59E0B"
+                          strokeWidth="5"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                        <path
+                          d="M 12 104 Q 60 54 108 12"
+                          stroke="#FFFFFF"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                      </svg>
+                    )}
+
+                    {impactVfx.vfxType === 'flame' && (
+                      <div
+                        className={`absolute left-1/2 bottom-0 animate-skill-pillar rounded-full ${
+                          isGiantBoss ? 'w-40 h-56' : 'w-24 h-36'
+                        }`}
+                        style={{
+                          background:
+                            'radial-gradient(ellipse at 50% 80%, #FFFBEB 0%, #FACC15 26%, #F97316 55%, #DC262688 78%, transparent 100%)',
+                          filter: 'blur(2px) drop-shadow(0 0 18px #F97316)',
+                        }}
+                      />
+                    )}
+
+                    {impactVfx.vfxType === 'wave' && (
+                      <div
+                        className={`absolute left-1/2 top-1/2 animate-skill-slash rounded-full border-4 border-[#38BDF8] ${
+                          isGiantBoss ? 'w-48 h-48' : 'w-28 h-28'
+                        }`}
+                        style={{
+                          background:
+                            impactVfx.targetType === 'ally_heal'
+                              ? 'radial-gradient(circle, rgba(74,222,128,0.45) 0%, rgba(56,189,248,0.3) 55%, transparent 75%)'
+                              : 'radial-gradient(circle, rgba(224,242,254,0.6) 0%, rgba(14,165,233,0.4) 55%, transparent 75%)',
+                          boxShadow: '0 0 24px #38BDF8',
+                        }}
+                      />
+                    )}
+
+                    {impactVfx.vfxType === 'vine' && (
+                      <svg
+                        viewBox="0 0 120 120"
+                        className={`absolute left-1/2 top-1/2 animate-skill-slash ${
+                          isGiantBoss ? 'w-48 h-48' : 'w-32 h-32'
+                        }`}
+                      >
+                        <path
+                          d="M 10 95 C 35 20, 85 100, 110 20"
+                          stroke="#22C55E"
+                          strokeWidth="6"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                        <path
+                          d="M 15 35 C 45 95, 80 25, 108 88"
+                          stroke="#86EFAC"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                      </svg>
+                    )}
+
+                    {impactVfx.vfxType === 'mountain' && (
+                      <div
+                        className={`absolute left-1/2 bottom-0 animate-skill-pillar rounded-t-full border-2 border-[#FDE047] ${
+                          isGiantBoss ? 'w-44 h-44' : 'w-28 h-28'
+                        }`}
+                        style={{
+                          background:
+                            impactVfx.targetType === 'ally_shield'
+                              ? 'radial-gradient(circle, rgba(254,240,138,0.48) 0%, rgba(217,119,6,0.25) 65%, transparent 80%)'
+                              : 'radial-gradient(ellipse at 50% 80%, #FEF08A 0%, #D97706 50%, transparent 85%)',
+                          boxShadow: '0 0 22px #F59E0B',
+                        }}
+                      />
+                    )}
                   </div>
                 )}
 
