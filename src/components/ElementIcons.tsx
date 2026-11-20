@@ -903,9 +903,13 @@ export function SpiritVeinSprite({
 }
 
 export function getEnemyUnitSpriteUrl(id: string): string | null {
-  if (/^boss_/.test(id)) return `./assets/sprites/bosses/${id}.png`;
-  if (/^e([1-9]|1[0-5])$/.test(id)) return `./assets/sprites/monsters/${id}.png`;
-  if (/^vg([1-9]|10)$/.test(id)) return `./assets/sprites/guardians/${id}.png`;
+  const bossMatch = id.match(/^(boss_(?:cuu_vi|huyen_vu|ma_long|kiem_ma))/);
+  if (bossMatch) return `./assets/sprites/bosses/${bossMatch[1]}.png`;
+  if (/^boss_/.test(id)) return `./assets/sprites/bosses/boss_cuu_vi.png`;
+  const monMatch = id.match(/^(e(?:1[0-5]|[1-9]))(?:\b|_)/);
+  if (monMatch) return `./assets/sprites/monsters/${monMatch[1]}.png`;
+  const guardMatch = id.match(/^(vg(?:10|[1-9]))(?:\b|_)/);
+  if (guardMatch) return `./assets/sprites/guardians/${guardMatch[1]}.png`;
   return null;
 }
 
@@ -1017,38 +1021,38 @@ export function ScrollModalShell({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-[#0B1716]/75 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-center justify-center p-1.5 sm:p-4 bg-[#0B1716]/75 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
-        className={`relative w-full ${maxWidth} max-h-[92vh] flex flex-col scroll-parchment`}
+        className={`relative w-full ${maxWidth} max-h-[92dvh] flex flex-col scroll-parchment`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top ornate dark-jade scroll header seated neatly inside the scroll */}
-        <div className="flex items-center justify-between gap-4 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-[#1A312F] via-[#223F3C] to-[#1A312F] border-b-2 border-[#C9A45C] text-[#F7EFD8] rounded-t-md shrink-0">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-[#1A312F] via-[#223F3C] to-[#1A312F] border-b-2 border-[#C9A45C] text-[#F7EFD8] rounded-t-md shrink-0">
           <div className="min-w-0">
             <h2
-              className="text-xl sm:text-2xl font-bold tracking-wide text-[#F6DF9F] truncate"
+              className="text-base sm:text-2xl font-bold tracking-wide text-[#F6DF9F] truncate"
               style={{ fontFamily: 'var(--font-display)' }}
             >
               {title}
             </h2>
-            {subtitle && <p className="text-xs text-[#C7D7CE] truncate">{subtitle}</p>}
+            {subtitle && <p className="text-[11px] sm:text-xs text-[#C7D7CE] truncate">{subtitle}</p>}
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {headerRight}
             <button
               onClick={onClose}
               aria-label="Đóng"
-              className="w-9 h-9 rounded-full flex items-center justify-center bg-[#122422] border border-[#C9A45C]/60 text-[#F2D794] hover:bg-[#C84332] hover:text-white hover:border-[#F2D794] transition-colors cursor-pointer"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center bg-[#122422] border border-[#C9A45C]/60 text-[#F2D794] hover:bg-[#C84332] hover:text-white hover:border-[#F2D794] transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
         {/* Scroll body */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 text-[#24211C]">{children}</div>
+        <div className="flex-1 overflow-y-auto p-2.5 sm:p-5 text-[#24211C]">{children}</div>
       </div>
     </div>
   );

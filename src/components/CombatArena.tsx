@@ -464,7 +464,12 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     // -----------------------------------------------------------------------
     // PHASE 2: Approach / Cast Movement
     // -----------------------------------------------------------------------
-    const arenaFloor = resolveArenaSpec(context.mode, context.targetId, context.bossDef?.id).floor;
+    const arenaFloor = resolveArenaSpec(
+      context.mode,
+      context.targetId,
+      context.bossDef?.id,
+      context.bossDef?.arenaKey || context.realmDef?.arenaKey,
+    ).floor;
     const isMobileScreen = typeof window !== 'undefined' && window.innerWidth < 640;
     let dashTo: { x: number; y: number } | null = null;
     let leapY = 0;
@@ -739,6 +744,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         mode={context.mode}
         targetId={context.targetId}
         bossId={context.bossDef?.id}
+        arenaKey={context.bossDef?.arenaKey || context.realmDef?.arenaKey}
         allies={allies}
         enemies={enemies}
         activeUnitId={activeUnit?.id}
@@ -759,7 +765,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       />
 
       {/* 3. COMPACT BOTTOM HUD (Skill Deck left + Collapsible Translucent Combat Log right) */}
-      <footer className="relative z-20 px-2 sm:px-4 py-1.5 sm:py-2 bg-[#0D1D1C]/92 border-t border-[#C9A45C]/55 backdrop-blur-sm shrink-0">
+      <footer className="relative z-20 px-2 sm:px-4 pt-1.5 sm:pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-[#0D1D1C]/92 border-t border-[#C9A45C]/55 backdrop-blur-sm shrink-0">
         <div className="max-w-[1220px] mx-auto flex flex-col lg:flex-row items-stretch lg:items-end justify-between gap-2">
           {/* Bottom-Left: Active Ally Skill Command Deck */}
           <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">

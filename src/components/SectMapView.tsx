@@ -2066,7 +2066,7 @@ export function SectMapView({
       {/* Compact Camera Zoom Controls (positioned cleanly along bottom-left utility strip) */}
       <div
         data-camera-control="true"
-        className="absolute bottom-[86px] right-2 sm:bottom-3 sm:left-[126px] sm:right-auto z-20 flex items-center gap-0.5 rounded-lg bg-[#152826]/92 border border-[#C9A45C]/70 px-1 py-0.5 text-[#F6EBD0] shadow-lg backdrop-blur-xs"
+        className="absolute bottom-[calc(76px+env(safe-area-inset-bottom))] right-2 sm:bottom-3 sm:left-[126px] sm:right-auto z-20 flex items-center gap-0.5 rounded-lg bg-[#152826]/92 border border-[#C9A45C]/70 px-1 py-0.5 text-[#F6EBD0] shadow-lg backdrop-blur-xs"
       >
         <button
           type="button"

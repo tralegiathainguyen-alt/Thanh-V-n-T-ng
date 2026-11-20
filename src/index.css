@@ -20,10 +20,13 @@
 @layer base {
   html, body, #root {
     height: 100%;
+    height: 100dvh;
     width: 100%;
+    max-width: 100vw;
     margin: 0;
     padding: 0;
     overflow: hidden;
+    overscroll-behavior: none;
     font-family: var(--font-ui);
   }
 }
@@ -134,7 +137,7 @@
 .jade-hud-bar {
   background-color: transparent;
   border-style: solid;
-  border-width: 10px 30px;
+  border-width: 6px 12px;
   border-image-source: url('/assets/aistudio/jade_hud_bar_a5d9c507.png');
   border-image-slice: 24 86 24 86 fill;
   border-image-repeat: stretch;
@@ -165,12 +168,17 @@
 .shortcut-banner-btn {
   background-color: transparent;
   border-style: solid;
-  border-width: 5px 24px;
+  border-width: 4px 14px;
   border-image-source: url('/assets/sprites/hud/shortcut_banner_pointed.png');
   border-image-slice: 24 130 24 130 fill;
   border-image-repeat: stretch;
   filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.48));
   transition: transform 0.16s ease, filter 0.16s ease;
+}
+@media (min-width: 640px) {
+  .shortcut-banner-btn {
+    border-width: 5px 24px;
+  }
 }
 .shortcut-banner-btn:hover {
   transform: translateX(3px);

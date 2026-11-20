@@ -115,9 +115,15 @@ export function resolveArenaSpec(
   mode: 'realm' | 'boss' | 'vein',
   targetId?: string,
   bossId?: string,
+  arenaKey?: string,
 ): ArenaSpec {
-  if (mode === 'boss' && bossId && ARENA_SPECS[bossId]) {
-    return ARENA_SPECS[bossId];
+  if (arenaKey && ARENA_SPECS[arenaKey]) {
+    return ARENA_SPECS[arenaKey];
+  }
+  if (mode === 'boss' && bossId) {
+    if (ARENA_SPECS[bossId]) return ARENA_SPECS[bossId];
+    const bossPrefix = bossId.match(/^(boss_(?:cuu_vi|huyen_vu|ma_long|kiem_ma))/)?.[1];
+    if (bossPrefix && ARENA_SPECS[bossPrefix]) return ARENA_SPECS[bossPrefix];
   }
   if (mode === 'realm') {
     if (targetId === 'thanh_van_coc') return ARENA_SPECS.realm_moc;
@@ -229,6 +235,7 @@ interface BattleStageProps {
   mode: 'realm' | 'boss' | 'vein';
   targetId?: string;
   bossId?: string;
+  arenaKey?: string;
   allies: StageCombatUnit[];
   enemies: StageCombatUnit[];
   activeUnitId?: string;
@@ -249,6 +256,7 @@ export const BattleStage: React.FC<BattleStageProps> = ({
   mode,
   targetId,
   bossId,
+  arenaKey,
   allies,
   enemies,
   activeUnitId,
@@ -278,7 +286,7 @@ export const BattleStage: React.FC<BattleStageProps> = ({
   const isTablet = viewportW >= 640 && viewportW < 1024;
   const responsiveUnitScale = isMobile ? 0.68 : isTablet ? 0.85 : 1.0;
 
-  const arenaSpec = resolveArenaSpec(mode, targetId, bossId);
+  const arenaSpec = resolveArenaSpec(mode, targetId, bossId, arenaKey);
   const { bgUrl: arenaBgUrl, floor } = arenaSpec;
 
   const allPositioned = [

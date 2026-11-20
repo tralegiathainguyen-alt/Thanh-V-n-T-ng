@@ -606,20 +606,85 @@ export const BUILDING_DEFS: Record<BuildingId, BuildingDef> = {
   },
 };
 
-export const SECRET_REALMS: SecretRealmDef[] = [
+export interface CultivationRealmTierMeta {
+  tier: number;
+  name: string;
+  shortName: string;
+  hasSubStages: boolean;
+}
+
+export const CULTIVATION_REALM_TIERS: CultivationRealmTierMeta[] = [
+  { tier: 0, name: 'Luyện Khí kỳ', shortName: 'Luyện Khí', hasSubStages: false },
+  { tier: 1, name: 'Trúc Cơ kỳ', shortName: 'Trúc Cơ', hasSubStages: true },
+  { tier: 2, name: 'Kim Đan kỳ', shortName: 'Kim Đan', hasSubStages: true },
+  { tier: 3, name: 'Nguyên Anh kỳ', shortName: 'Nguyên Anh', hasSubStages: true },
+  { tier: 4, name: 'Hóa Thần kỳ', shortName: 'Hóa Thần', hasSubStages: true },
+  { tier: 5, name: 'Luyện Hư kỳ', shortName: 'Luyện Hư', hasSubStages: true },
+  { tier: 6, name: 'Hợp Thể kỳ', shortName: 'Hợp Thể', hasSubStages: true },
+  { tier: 7, name: 'Đại Thừa kỳ', shortName: 'Đại Thừa', hasSubStages: true },
+  { tier: 8, name: 'Độ Kiếp kỳ', shortName: 'Độ Kiếp', hasSubStages: true },
+];
+
+const REALM_SUB_STAGES = [
+  { key: 'so', label: 'Sơ kỳ', powerMult: 1.0, statMult: 1.0, rewardMult: 1.0, staminaAdd: 0 },
+  { key: 'trung', label: 'Trung kỳ', powerMult: 1.24, statMult: 1.22, rewardMult: 1.22, staminaAdd: 1 },
+  { key: 'hau', label: 'Hậu kỳ', powerMult: 1.52, statMult: 1.48, rewardMult: 1.48, staminaAdd: 2 },
+  { key: 'vien_man', label: 'Viên mãn', powerMult: 1.86, statMult: 1.8, rewardMult: 1.8, staminaAdd: 3 },
+] as const;
+
+interface RealmTierSeed {
+  tier: number;
+  slug: string;
+  realmName: string;
+  baseName: string;
+  locationNote: string;
+  legacySoId?: string;
+  element: ElementType;
+  arenaKey: string;
+  basePower: number;
+  baseStamina: number;
+  baseHp: number;
+  baseAtk: number;
+  baseDef: number;
+  baseSpd: number;
+  baseRewards: {
+    linhThach: number;
+    linhThao: number;
+    huyenThiet: number;
+    cuongHoaThach: number;
+    dotPhaDan: number;
+    linhKhi: number;
+    dropRarityPool: Rarity[];
+  };
+  enemies: Array<{
+    spritePrefix: string;
+    name: string;
+    element: ElementType;
+    hpRatio: number;
+    atkRatio: number;
+    defRatio: number;
+    spdOffset: number;
+    glyph: string;
+  }>;
+}
+
+const REALM_TIER_SEEDS: RealmTierSeed[] = [
   {
-    id: 'thanh_van_coc',
-    name: 'Thanh Vân Linh Cốc',
-    subtitle: 'Tầng 1 · Yêu Thú Luyện Khí',
-    recommendedPower: 2800,
-    staminaCost: 10,
+    tier: 0,
+    slug: 'luyen_khi',
+    realmName: 'Luyện Khí kỳ',
+    baseName: 'Thanh Vân Linh Cốc',
+    locationNote: 'Yêu Thú Luyện Khí',
+    legacySoId: 'thanh_van_coc',
     element: 'Moc',
-    enemies: [
-      { id: 'e1', name: 'Thanh Mộc Lang', element: 'Moc', hp: 920, atk: 105, def: 32, spd: 42, glyph: '狼' },
-      { id: 'e2', name: 'Độc Đằng Tinh', element: 'Moc', hp: 840, atk: 98, def: 28, spd: 38, glyph: '藤' },
-      { id: 'e3', name: 'Mộc Linh Hộ Vệ', element: 'Tho', hp: 1180, atk: 112, def: 45, spd: 34, glyph: '衛' },
-    ],
-    rewards: {
+    arenaKey: 'realm_moc',
+    basePower: 2800,
+    baseStamina: 10,
+    baseHp: 920,
+    baseAtk: 105,
+    baseDef: 32,
+    baseSpd: 42,
+    baseRewards: {
       linhThach: 420,
       linhThao: 65,
       huyenThiet: 45,
@@ -628,20 +693,28 @@ export const SECRET_REALMS: SecretRealmDef[] = [
       linhKhi: 360,
       dropRarityPool: ['thuong', 'hiem', 'su_thi'],
     },
+    enemies: [
+      { spritePrefix: 'e1', name: 'Thanh Mộc Lang', element: 'Moc', hpRatio: 1.0, atkRatio: 1.0, defRatio: 1.0, spdOffset: 0, glyph: '狼' },
+      { spritePrefix: 'e2', name: 'Độc Đằng Tinh', element: 'Moc', hpRatio: 0.91, atkRatio: 0.93, defRatio: 0.88, spdOffset: -4, glyph: '藤' },
+      { spritePrefix: 'e3', name: 'Mộc Linh Hộ Vệ', element: 'Tho', hpRatio: 1.28, atkRatio: 1.07, defRatio: 1.4, spdOffset: -8, glyph: '衛' },
+    ],
   },
   {
-    id: 'huyen_bang_dong',
-    name: 'Huyền Băng Cổ Động',
-    subtitle: 'Tầng 2 · Hàn Đàm Trúc Cơ',
-    recommendedPower: 6500,
-    staminaCost: 14,
+    tier: 1,
+    slug: 'truc_co',
+    realmName: 'Trúc Cơ kỳ',
+    baseName: 'Huyền Băng Cổ Động',
+    locationNote: 'Hàn Đàm Trúc Cơ',
+    legacySoId: 'huyen_bang_dong',
     element: 'Thuy',
-    enemies: [
-      { id: 'e4', name: 'Hàn Băng Giao', element: 'Thuy', hp: 2250, atk: 245, def: 78, spd: 62, glyph: '蛟' },
-      { id: 'e5', name: 'Tuyết Linh Vệ', element: 'Thuy', hp: 1980, atk: 220, def: 72, spd: 58, glyph: '雪' },
-      { id: 'e6', name: 'Kim Giáp Khôi Lỗi', element: 'Kim', hp: 2650, atk: 265, def: 96, spd: 50, glyph: '傀' },
-    ],
-    rewards: {
+    arenaKey: 'realm_bang',
+    basePower: 6500,
+    baseStamina: 14,
+    baseHp: 2250,
+    baseAtk: 245,
+    baseDef: 78,
+    baseSpd: 62,
+    baseRewards: {
       linhThach: 980,
       linhThao: 140,
       huyenThiet: 110,
@@ -650,20 +723,28 @@ export const SECRET_REALMS: SecretRealmDef[] = [
       linhKhi: 920,
       dropRarityPool: ['hiem', 'su_thi', 'huyen_thoai'],
     },
+    enemies: [
+      { spritePrefix: 'e4', name: 'Hàn Băng Giao', element: 'Thuy', hpRatio: 1.0, atkRatio: 1.0, defRatio: 1.0, spdOffset: 0, glyph: '蛟' },
+      { spritePrefix: 'e5', name: 'Tuyết Linh Vệ', element: 'Thuy', hpRatio: 0.88, atkRatio: 0.9, defRatio: 0.92, spdOffset: -4, glyph: '雪' },
+      { spritePrefix: 'e6', name: 'Kim Giáp Khôi Lỗi', element: 'Kim', hpRatio: 1.18, atkRatio: 1.08, defRatio: 1.23, spdOffset: -12, glyph: '傀' },
+    ],
   },
   {
-    id: 'xich_viem_vuc',
-    name: 'Xích Viêm Hỏa Vực',
-    subtitle: 'Tầng 3 · Dung Nham Kim Đan',
-    recommendedPower: 14000,
-    staminaCost: 18,
+    tier: 2,
+    slug: 'kim_dan',
+    realmName: 'Kim Đan kỳ',
+    baseName: 'Xích Viêm Hỏa Vực',
+    locationNote: 'Dung Nham Kim Đan',
+    legacySoId: 'xich_viem_vuc',
     element: 'Hoa',
-    enemies: [
-      { id: 'e7', name: 'Dung Nham Cự Nhân', element: 'Tho', hp: 5100, atk: 470, def: 165, spd: 70, glyph: '岩' },
-      { id: 'e8', name: 'Xích Hỏa Nha', element: 'Hoa', hp: 4300, atk: 540, def: 130, spd: 86, glyph: '鴉' },
-      { id: 'e9', name: 'Hỏa Ngục Tướng', element: 'Hoa', hp: 5900, atk: 590, def: 175, spd: 78, glyph: '炎' },
-    ],
-    rewards: {
+    arenaKey: 'boss_ma_long',
+    basePower: 14000,
+    baseStamina: 18,
+    baseHp: 5100,
+    baseAtk: 470,
+    baseDef: 165,
+    baseSpd: 78,
+    baseRewards: {
       linhThach: 2150,
       linhThao: 290,
       huyenThiet: 240,
@@ -672,20 +753,28 @@ export const SECRET_REALMS: SecretRealmDef[] = [
       linhKhi: 2300,
       dropRarityPool: ['su_thi', 'huyen_thoai'],
     },
+    enemies: [
+      { spritePrefix: 'e7', name: 'Dung Nham Cự Nhân', element: 'Tho', hpRatio: 1.0, atkRatio: 1.0, defRatio: 1.0, spdOffset: -8, glyph: '岩' },
+      { spritePrefix: 'e8', name: 'Xích Hỏa Nha', element: 'Hoa', hpRatio: 0.84, atkRatio: 1.15, defRatio: 0.79, spdOffset: 8, glyph: '鴉' },
+      { spritePrefix: 'e9', name: 'Hỏa Ngục Tướng', element: 'Hoa', hpRatio: 1.16, atkRatio: 1.25, defRatio: 1.06, spdOffset: 0, glyph: '炎' },
+    ],
   },
   {
-    id: 'u_minh_co_mo',
-    name: 'U Minh Kiếm Trủng',
-    subtitle: 'Tầng 4 · Kiếm Ý Nguyên Anh',
-    recommendedPower: 28000,
-    staminaCost: 22,
+    tier: 3,
+    slug: 'nguyen_anh',
+    realmName: 'Nguyên Anh kỳ',
+    baseName: 'U Minh Kiếm Trủng',
+    locationNote: 'Kiếm Ý Nguyên Anh',
+    legacySoId: 'u_minh_co_mo',
     element: 'Kim',
-    enemies: [
-      { id: 'e10', name: 'Tàn Kiếm Đạo Hồn', element: 'Kim', hp: 9600, atk: 980, def: 310, spd: 102, glyph: '劍' },
-      { id: 'e11', name: 'Cổ Mộ Thạch Vệ', element: 'Tho', hp: 11800, atk: 880, def: 390, spd: 84, glyph: '碑' },
-      { id: 'e12', name: 'Huyết Kiếm Tôn Giả', element: 'Kim', hp: 12600, atk: 1120, def: 350, spd: 112, glyph: '尊' },
-    ],
-    rewards: {
+    arenaKey: 'boss_kiem_ma',
+    basePower: 28000,
+    baseStamina: 22,
+    baseHp: 9600,
+    baseAtk: 980,
+    baseDef: 310,
+    baseSpd: 102,
+    baseRewards: {
       linhThach: 4600,
       linhThao: 580,
       huyenThiet: 490,
@@ -694,20 +783,28 @@ export const SECRET_REALMS: SecretRealmDef[] = [
       linhKhi: 5400,
       dropRarityPool: ['su_thi', 'huyen_thoai', 'truyen_thuyet'],
     },
+    enemies: [
+      { spritePrefix: 'e10', name: 'Tàn Kiếm Đạo Hồn', element: 'Kim', hpRatio: 1.0, atkRatio: 1.0, defRatio: 1.0, spdOffset: 0, glyph: '劍' },
+      { spritePrefix: 'e11', name: 'Cổ Mộ Thạch Vệ', element: 'Tho', hpRatio: 1.23, atkRatio: 0.9, defRatio: 1.26, spdOffset: -18, glyph: '碑' },
+      { spritePrefix: 'e12', name: 'Huyết Kiếm Tôn Giả', element: 'Kim', hpRatio: 1.31, atkRatio: 1.14, defRatio: 1.13, spdOffset: 10, glyph: '尊' },
+    ],
   },
   {
-    id: 'cuu_thien_than_khu',
-    name: 'Cửu Thiên Thần Khư',
-    subtitle: 'Tầng 5 · Thái Cổ Hóa Thần',
-    recommendedPower: 52000,
-    staminaCost: 28,
+    tier: 4,
+    slug: 'hoa_than',
+    realmName: 'Hóa Thần kỳ',
+    baseName: 'Cửu Thiên Thần Khư',
+    locationNote: 'Thái Cổ Hóa Thần',
+    legacySoId: 'cuu_thien_than_khu',
     element: 'Tho',
-    enemies: [
-      { id: 'e13', name: 'Thái Cổ Thạch Long', element: 'Tho', hp: 22000, atk: 1850, def: 640, spd: 125, glyph: '龍' },
-      { id: 'e14', name: 'Thiên Hỏa Phượng Linh', element: 'Hoa', hp: 18500, atk: 2150, def: 520, spd: 142, glyph: '鳳' },
-      { id: 'e15', name: 'Cửu Thiên Thần Tướng', element: 'Kim', hp: 26500, atk: 2300, def: 710, spd: 138, glyph: '神' },
-    ],
-    rewards: {
+    arenaKey: 'realm_cuu_thien',
+    basePower: 55000,
+    baseStamina: 26,
+    baseHp: 22000,
+    baseAtk: 1850,
+    baseDef: 640,
+    baseSpd: 128,
+    baseRewards: {
       linhThach: 9800,
       linhThao: 1100,
       huyenThiet: 950,
@@ -716,75 +813,404 @@ export const SECRET_REALMS: SecretRealmDef[] = [
       linhKhi: 12500,
       dropRarityPool: ['huyen_thoai', 'truyen_thuyet'],
     },
+    enemies: [
+      { spritePrefix: 'e13', name: 'Thái Cổ Thạch Long', element: 'Tho', hpRatio: 1.0, atkRatio: 1.0, defRatio: 1.0, spdOffset: -3, glyph: '龍' },
+      { spritePrefix: 'e14', name: 'Thiên Hỏa Phượng Linh', element: 'Hoa', hpRatio: 0.84, atkRatio: 1.16, defRatio: 0.82, spdOffset: 14, glyph: '鳳' },
+      { spritePrefix: 'e15', name: 'Cửu Thiên Thần Tướng', element: 'Kim', hpRatio: 1.2, atkRatio: 1.24, defRatio: 1.11, spdOffset: 10, glyph: '神' },
+    ],
+  },
+  {
+    tier: 5,
+    slug: 'luyen_hu',
+    realmName: 'Luyện Hư kỳ',
+    baseName: 'Thái Hư Thanh Mộc Giới',
+    locationNote: 'Hư Không Luyện Hư',
+    element: 'Moc',
+    arenaKey: 'boss_cuu_vi',
+    basePower: 115000,
+    baseStamina: 30,
+    baseHp: 46000,
+    baseAtk: 3750,
+    baseDef: 1280,
+    baseSpd: 158,
+    baseRewards: {
+      linhThach: 19500,
+      linhThao: 2200,
+      huyenThiet: 1900,
+      cuongHoaThach: 165,
+      dotPhaDan: 12,
+      linhKhi: 26000,
+      dropRarityPool: ['huyen_thoai', 'truyen_thuyet'],
+    },
+    enemies: [
+      { spritePrefix: 'e1', name: 'Hư Không Thanh Lang', element: 'Moc', hpRatio: 0.96, atkRatio: 1.05, defRatio: 0.95, spdOffset: 8, glyph: '虛' },
+      { spritePrefix: 'e3', name: 'Thái Hư Cổ Thụ Vệ', element: 'Tho', hpRatio: 1.25, atkRatio: 0.94, defRatio: 1.3, spdOffset: -10, glyph: '木' },
+      { spritePrefix: 'e15', name: 'Luyện Hư Tuần Sứ', element: 'Moc', hpRatio: 1.12, atkRatio: 1.18, defRatio: 1.05, spdOffset: 12, glyph: '使' },
+    ],
+  },
+  {
+    tier: 6,
+    slug: 'hop_the',
+    realmName: 'Hợp Thể kỳ',
+    baseName: 'Bắc Minh Huyền Hải',
+    locationNote: 'Thương Hải Hợp Thể',
+    element: 'Thuy',
+    arenaKey: 'boss_huyen_vu',
+    basePower: 235000,
+    baseStamina: 34,
+    baseHp: 95000,
+    baseAtk: 7400,
+    baseDef: 2550,
+    baseSpd: 190,
+    baseRewards: {
+      linhThach: 38000,
+      linhThao: 4300,
+      huyenThiet: 3700,
+      cuongHoaThach: 290,
+      dotPhaDan: 18,
+      linhKhi: 52000,
+      dropRarityPool: ['huyen_thoai', 'truyen_thuyet'],
+    },
+    enemies: [
+      { spritePrefix: 'e4', name: 'Bắc Minh Hải Giao', element: 'Thuy', hpRatio: 1.04, atkRatio: 1.06, defRatio: 1.02, spdOffset: 6, glyph: '溟' },
+      { spritePrefix: 'e5', name: 'Huyền Băng Thần Vệ', element: 'Thuy', hpRatio: 0.92, atkRatio: 1.12, defRatio: 0.96, spdOffset: 12, glyph: '冰' },
+      { spritePrefix: 'e13', name: 'Thương Hải Cự Kình', element: 'Tho', hpRatio: 1.32, atkRatio: 1.08, defRatio: 1.28, spdOffset: -12, glyph: '鯨' },
+    ],
+  },
+  {
+    tier: 7,
+    slug: 'dai_thua',
+    realmName: 'Đại Thừa kỳ',
+    baseName: 'Phần Thiên Viêm Ngục',
+    locationNote: 'Thần Hỏa Đại Thừa',
+    element: 'Hoa',
+    arenaKey: 'boss_ma_long',
+    basePower: 480000,
+    baseStamina: 38,
+    baseHp: 195000,
+    baseAtk: 14800,
+    baseDef: 5100,
+    baseSpd: 226,
+    baseRewards: {
+      linhThach: 76000,
+      linhThao: 8500,
+      huyenThiet: 7400,
+      cuongHoaThach: 520,
+      dotPhaDan: 28,
+      linhKhi: 105000,
+      dropRarityPool: ['truyen_thuyet'],
+    },
+    enemies: [
+      { spritePrefix: 'e8', name: 'Kim Ô Chân Hỏa Điểu', element: 'Hoa', hpRatio: 0.9, atkRatio: 1.22, defRatio: 0.88, spdOffset: 16, glyph: '烏' },
+      { spritePrefix: 'e9', name: 'Phần Thiên Viêm Tướng', element: 'Hoa', hpRatio: 1.16, atkRatio: 1.18, defRatio: 1.08, spdOffset: 4, glyph: '焚' },
+      { spritePrefix: 'e14', name: 'Chu Tước Thánh Linh', element: 'Hoa', hpRatio: 1.24, atkRatio: 1.28, defRatio: 1.02, spdOffset: 12, glyph: '雀' },
+    ],
+  },
+  {
+    tier: 8,
+    slug: 'do_kiep',
+    realmName: 'Độ Kiếp kỳ',
+    baseName: 'Cửu Trọng Lôi Kiếp Đài',
+    locationNote: 'Thiên Kiếp Độ Kiếp',
+    element: 'Kim',
+    arenaKey: 'realm_cuu_thien',
+    basePower: 980000,
+    baseStamina: 44,
+    baseHp: 410000,
+    baseAtk: 29500,
+    baseDef: 10200,
+    baseSpd: 268,
+    baseRewards: {
+      linhThach: 155000,
+      linhThao: 17000,
+      huyenThiet: 15000,
+      cuongHoaThach: 920,
+      dotPhaDan: 45,
+      linhKhi: 220000,
+      dropRarityPool: ['truyen_thuyet'],
+    },
+    enemies: [
+      { spritePrefix: 'e10', name: 'Thiên Kiếm Lôi Hồn', element: 'Kim', hpRatio: 1.02, atkRatio: 1.16, defRatio: 1.0, spdOffset: 10, glyph: '雷' },
+      { spritePrefix: 'e12', name: 'Độ Kiếp Kiếm Thánh', element: 'Kim', hpRatio: 1.22, atkRatio: 1.26, defRatio: 1.12, spdOffset: 14, glyph: '劫' },
+      { spritePrefix: 'e15', name: 'Thiên Đạo Chấp Pháp Giả', element: 'Tho', hpRatio: 1.38, atkRatio: 1.22, defRatio: 1.28, spdOffset: 4, glyph: '道' },
+    ],
   },
 ];
 
-export const LEGENDARY_BOSSES: BossDef[] = [
-  {
-    id: 'boss_cuu_vi',
-    name: 'Cửu Vĩ Thanh Hồ Vương',
-    title: 'Yêu Thánh Thanh Mộc · Rơi Bộ Thanh Liên',
+export const SECRET_REALMS: SecretRealmDef[] = REALM_TIER_SEEDS.flatMap((seed) => {
+  const stages = seed.tier === 0 ? [REALM_SUB_STAGES[0]] : REALM_SUB_STAGES;
+  return stages.map((st, sIdx) => {
+    const isSingle = seed.tier === 0;
+    const id = sIdx === 0 && seed.legacySoId ? seed.legacySoId : `realm_${seed.slug}_${st.key}`;
+    const stageLabel = isSingle ? seed.realmName : `${seed.realmName} · ${st.label}`;
+    return {
+      id,
+      name: isSingle ? seed.baseName : `${seed.baseName} (${st.label})`,
+      subtitle: `${stageLabel} · ${seed.locationNote}`,
+      realmTier: seed.tier,
+      stageLabel: isSingle ? 'Luyện Khí' : st.label,
+      arenaKey: seed.arenaKey,
+      recommendedPower: Math.round(seed.basePower * st.powerMult),
+      staminaCost: seed.baseStamina + st.staminaAdd,
+      element: seed.element,
+      enemies: seed.enemies.map((e, eIdx) => ({
+        id: isSingle || sIdx === 0 ? e.spritePrefix : `${e.spritePrefix}_${seed.slug}_${st.key}_${eIdx}`,
+        name: e.name,
+        element: e.element,
+        hp: Math.round(seed.baseHp * e.hpRatio * st.statMult),
+        atk: Math.round(seed.baseAtk * e.atkRatio * st.statMult),
+        def: Math.round(seed.baseDef * e.defRatio * st.statMult),
+        spd: Math.round(seed.baseSpd + e.spdOffset + sIdx * 4),
+        glyph: e.glyph,
+      })),
+      rewards: {
+        linhThach: Math.round(seed.baseRewards.linhThach * st.rewardMult),
+        linhThao: Math.round(seed.baseRewards.linhThao * st.rewardMult),
+        huyenThiet: Math.round(seed.baseRewards.huyenThiet * st.rewardMult),
+        cuongHoaThach: Math.round(seed.baseRewards.cuongHoaThach * st.rewardMult),
+        dotPhaDan: Math.max(1, Math.round(seed.baseRewards.dotPhaDan * st.rewardMult)),
+        linhKhi: Math.round(seed.baseRewards.linhKhi * st.rewardMult),
+        dropRarityPool: seed.baseRewards.dropRarityPool,
+      },
+    };
+  });
+});
+
+interface BossArchetype {
+  prefix: 'boss_cuu_vi' | 'boss_huyen_vu' | 'boss_ma_long' | 'boss_kiem_ma';
+  element: ElementType;
+  setId: BossDef['setId'];
+  arenaKey: string;
+  counterHint: string;
+}
+
+const BOSS_ARCHETYPES: Record<BossArchetype['prefix'], BossArchetype> = {
+  boss_cuu_vi: {
+    prefix: 'boss_cuu_vi',
     element: 'Moc',
-    recommendedPower: 5500,
-    staminaCost: 20,
-    hp: 6200,
-    atk: 310,
-    def: 110,
-    spd: 72,
     setId: 'thanh_lien_tien_ton',
-    guaranteedMinRarity: 'su_thi',
-    description: 'Yêu vương tu luyện vạn năm trong rừng Thanh Liên. Khắc chế bằng hệ Kim (Kiếm Khí)!',
-    skills: ELEMENT_SKILLS.Moc,
+    arenaKey: 'boss_cuu_vi',
+    counterHint: 'Khắc chế bằng hệ Kim (Kiếm Khí)!',
   },
-  {
-    id: 'boss_huyen_vu',
-    name: 'Bắc Hải Huyền Vũ Cổ Thú',
-    title: 'Thần Thú Huyền Thủy · Rơi Bộ Huyền Vũ',
+  boss_huyen_vu: {
+    prefix: 'boss_huyen_vu',
     element: 'Thuy',
-    recommendedPower: 13500,
-    staminaCost: 25,
-    hp: 15800,
-    atk: 620,
-    def: 260,
-    spd: 84,
     setId: 'bat_diet_huyen_vu',
-    guaranteedMinRarity: 'huyen_thoai',
-    description: 'Cổ thú mang mai giáp như núi băng. Khắc chế bằng hệ Thổ và Combo Ngũ Hành!',
-    skills: ELEMENT_SKILLS.Thuy,
+    arenaKey: 'boss_huyen_vu',
+    counterHint: 'Khắc chế bằng hệ Thổ và Combo Ngũ Hành!',
   },
-  {
-    id: 'boss_ma_long',
-    name: 'Xích Diễm Thái Cổ Ma Long',
-    title: 'Long Hoàng Chân Hỏa · Rơi Bộ Long Hoàng',
+  boss_ma_long: {
+    prefix: 'boss_ma_long',
     element: 'Hoa',
-    recommendedPower: 26000,
-    staminaCost: 30,
-    hp: 32500,
-    atk: 1280,
-    def: 410,
-    spd: 108,
     setId: 'thai_co_long_hoang',
-    guaranteedMinRarity: 'huyen_thoai',
-    description: 'Chúa tể dung nham có khả năng thiêu rụi cả đội hình. Dùng hệ Thủy dập tắt Long Viêm!',
-    skills: ELEMENT_SKILLS.Hoa,
+    arenaKey: 'boss_ma_long',
+    counterHint: 'Dùng hệ Thủy dập tắt Long Viêm!',
+  },
+  boss_kiem_ma: {
+    prefix: 'boss_kiem_ma',
+    element: 'Kim',
+    setId: 'cuu_thien_kiem_de',
+    arenaKey: 'boss_kiem_ma',
+    counterHint: 'Dùng hệ Hỏa khắc chế Kiếm Ý!',
+  },
+};
+
+interface BossTierSeed {
+  tier: number;
+  slug: string;
+  realmName: string;
+  archetype: BossArchetype['prefix'];
+  legacySoId?: string;
+  name: string;
+  titlePrefix: string;
+  description: string;
+  basePower: number;
+  baseStamina: number;
+  baseHp: number;
+  baseAtk: number;
+  baseDef: number;
+  baseSpd: number;
+  minRarity: Rarity;
+}
+
+const BOSS_TIER_SEEDS: BossTierSeed[] = [
+  {
+    tier: 0,
+    slug: 'lk',
+    realmName: 'Luyện Khí kỳ',
+    archetype: 'boss_cuu_vi',
+    legacySoId: 'boss_cuu_vi',
+    name: 'Cửu Vĩ Thanh Hồ Vương',
+    titlePrefix: 'Yêu Thánh Thanh Mộc · Rơi Bộ Thanh Liên',
+    description: 'Yêu vương tu luyện vạn năm trong rừng Thanh Liên.',
+    basePower: 5500,
+    baseStamina: 20,
+    baseHp: 6200,
+    baseAtk: 310,
+    baseDef: 110,
+    baseSpd: 72,
+    minRarity: 'su_thi',
   },
   {
-    id: 'boss_kiem_ma',
+    tier: 1,
+    slug: 'tc',
+    realmName: 'Trúc Cơ kỳ',
+    archetype: 'boss_huyen_vu',
+    legacySoId: 'boss_huyen_vu',
+    name: 'Bắc Hải Huyền Vũ Cổ Thú',
+    titlePrefix: 'Thần Thú Huyền Thủy · Rơi Bộ Huyền Vũ',
+    description: 'Cổ thú mang mai giáp như núi băng trấn giữ Bắc Hải.',
+    basePower: 13500,
+    baseStamina: 24,
+    baseHp: 15800,
+    baseAtk: 620,
+    baseDef: 260,
+    baseSpd: 84,
+    minRarity: 'huyen_thoai',
+  },
+  {
+    tier: 2,
+    slug: 'kd',
+    realmName: 'Kim Đan kỳ',
+    archetype: 'boss_ma_long',
+    legacySoId: 'boss_ma_long',
+    name: 'Xích Diễm Thái Cổ Ma Long',
+    titlePrefix: 'Long Hoàng Chân Hỏa · Rơi Bộ Long Hoàng',
+    description: 'Chúa tể dung nham có khả năng thiêu rụi cả đội hình.',
+    basePower: 26000,
+    baseStamina: 28,
+    baseHp: 32500,
+    baseAtk: 1280,
+    baseDef: 410,
+    baseSpd: 108,
+    minRarity: 'huyen_thoai',
+  },
+  {
+    tier: 3,
+    slug: 'na',
+    realmName: 'Nguyên Anh kỳ',
+    archetype: 'boss_kiem_ma',
+    legacySoId: 'boss_kiem_ma',
     name: 'Cửu Thiên Thái Cổ Kiếm Ma',
-    title: 'Kiếm Tôn Truyền Thuyết · Rơi Bộ Kiếm Đế',
-    element: 'Kim',
-    recommendedPower: 48000,
-    staminaCost: 35,
-    hp: 64000,
-    atk: 2450,
-    def: 720,
-    spd: 136,
-    setId: 'cuu_thien_kiem_de',
-    guaranteedMinRarity: 'truyen_thuyet',
-    description: 'Đỉnh cao chiến lực thiên hạ, rớt trang bị Truyền Thuyết + Tinh Hoa Boss nâng bậc Thần Khí!',
-    skills: ELEMENT_SKILLS.Kim,
+    titlePrefix: 'Kiếm Tôn Truyền Thuyết · Rơi Bộ Kiếm Đế',
+    description: 'Đỉnh cao chiến lực thiên hạ, rớt trang bị Truyền Thuyết + Tinh Hoa Boss!',
+    basePower: 48000,
+    baseStamina: 32,
+    baseHp: 64000,
+    baseAtk: 2450,
+    baseDef: 720,
+    baseSpd: 136,
+    minRarity: 'truyen_thuyet',
+  },
+  {
+    tier: 4,
+    slug: 'ht',
+    realmName: 'Hóa Thần kỳ',
+    archetype: 'boss_cuu_vi',
+    name: 'Thiên Hồ Hóa Thần Yêu Đế',
+    titlePrefix: 'Yêu Đế Hóa Thần · Rơi Bộ Thanh Liên',
+    description: 'Cửu Vĩ Yêu Đế bước vào Hóa Thần, thần hồn ảo ảnh khuấy đảo càn khôn.',
+    basePower: 96000,
+    baseStamina: 35,
+    baseHp: 132000,
+    baseAtk: 4850,
+    baseDef: 1450,
+    baseSpd: 162,
+    minRarity: 'truyen_thuyet',
+  },
+  {
+    tier: 5,
+    slug: 'lh',
+    realmName: 'Luyện Hư kỳ',
+    archetype: 'boss_huyen_vu',
+    name: 'Thái Hư Huyền Vũ Thánh Tôn',
+    titlePrefix: 'Thánh Thú Luyện Hư · Rơi Bộ Huyền Vũ',
+    description: 'Huyền Vũ Thánh Tôn ngự trị Hư Không Hải, phòng thủ kiên cố tựa tinh cầu.',
+    basePower: 195000,
+    baseStamina: 38,
+    baseHp: 275000,
+    baseAtk: 9600,
+    baseDef: 2950,
+    baseSpd: 194,
+    minRarity: 'truyen_thuyet',
+  },
+  {
+    tier: 6,
+    slug: 'hop',
+    realmName: 'Hợp Thể kỳ',
+    archetype: 'boss_ma_long',
+    name: 'Phần Thiên Hợp Thể Long Đế',
+    titlePrefix: 'Long Đế Hợp Thể · Rơi Bộ Long Hoàng',
+    description: 'Chân Long Hợp Thể mang Thái Dương Chân Hỏa thiêu đốt cửu châu.',
+    basePower: 400000,
+    baseStamina: 42,
+    baseHp: 570000,
+    baseAtk: 19200,
+    baseDef: 5900,
+    baseSpd: 228,
+    minRarity: 'truyen_thuyet',
+  },
+  {
+    tier: 7,
+    slug: 'dt',
+    realmName: 'Đại Thừa kỳ',
+    archetype: 'boss_kiem_ma',
+    name: 'Hỗn Độn Đại Thừa Kiếm Tổ',
+    titlePrefix: 'Kiếm Tổ Đại Thừa · Rơi Bộ Kiếm Đế',
+    description: 'Một kiếm chém rách tinh hà, uy áp Đại Thừa kỳ chấn động chư thiên.',
+    basePower: 820000,
+    baseStamina: 46,
+    baseHp: 1180000,
+    baseAtk: 38500,
+    baseDef: 11800,
+    baseSpd: 266,
+    minRarity: 'truyen_thuyet',
+  },
+  {
+    tier: 8,
+    slug: 'dk',
+    realmName: 'Độ Kiếp kỳ',
+    archetype: 'boss_kiem_ma',
+    name: 'Cửu Kiếp Thiên Đạo Ma Tôn',
+    titlePrefix: 'Thiên Đạo Độ Kiếp · Rơi Bộ Kiếm Đế',
+    description: 'Chí tôn vượt qua Cửu Trọng Lôi Kiếp, thử thách tối thượng trước ngưỡng Phi Thăng.',
+    basePower: 1680000,
+    baseStamina: 50,
+    baseHp: 2480000,
+    baseAtk: 78000,
+    baseDef: 23500,
+    baseSpd: 308,
+    minRarity: 'truyen_thuyet',
   },
 ];
+
+export const LEGENDARY_BOSSES: BossDef[] = BOSS_TIER_SEEDS.flatMap((seed) => {
+  const arch = BOSS_ARCHETYPES[seed.archetype];
+  const stages = seed.tier === 0 ? [REALM_SUB_STAGES[0]] : REALM_SUB_STAGES;
+  return stages.map((st, sIdx) => {
+    const isSingle = seed.tier === 0;
+    const id = sIdx === 0 && seed.legacySoId ? seed.legacySoId : `${arch.prefix}_${seed.slug}_${st.key}`;
+    return {
+      id,
+      name: isSingle ? seed.name : `${seed.name} · ${st.label}`,
+      title: `${isSingle ? seed.realmName : `${seed.realmName} ${st.label}`} · ${seed.titlePrefix}`,
+      realmTier: seed.tier,
+      stageLabel: isSingle ? 'Luyện Khí' : st.label,
+      arenaKey: arch.arenaKey,
+      element: arch.element,
+      recommendedPower: Math.round(seed.basePower * st.powerMult),
+      staminaCost: seed.baseStamina + st.staminaAdd,
+      hp: Math.round(seed.baseHp * st.statMult),
+      atk: Math.round(seed.baseAtk * st.statMult),
+      def: Math.round(seed.baseDef * st.statMult),
+      spd: Math.round(seed.baseSpd + sIdx * 6),
+      setId: arch.setId,
+      guaranteedMinRarity: seed.minRarity,
+      description: `${seed.description} ${arch.counterHint}`,
+      skills: ELEMENT_SKILLS[arch.element],
+    };
+  });
+});
 
 export const INITIAL_SPIRIT_VEINS: SpiritVein[] = [
   {

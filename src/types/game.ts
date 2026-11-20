@@ -146,6 +146,9 @@ export interface SecretRealmDef {
   id: string;
   name: string;
   subtitle: string;
+  realmTier?: number; // 0 = Luyện Khí .. 8 = Độ Kiếp
+  stageLabel?: string; // Sơ kỳ | Trung kỳ | Hậu kỳ | Viên mãn
+  arenaKey?: string;
   recommendedPower: number;
   staminaCost: number;
   element: ElementType;
@@ -165,6 +168,9 @@ export interface BossDef {
   id: string;
   name: string;
   title: string;
+  realmTier?: number; // 0 = Luyện Khí .. 8 = Độ Kiếp
+  stageLabel?: string; // Sơ kỳ | Trung kỳ | Hậu kỳ | Viên mãn
+  arenaKey?: string;
   element: ElementType;
   recommendedPower: number;
   staminaCost: number;
