@@ -20,15 +20,16 @@ import { CharacterAuraVFX } from './CharacterAuraVFX';
 import { SectAmbientVFX, SectSeason } from './SectAmbientVFX';
 
 const SECT_SEASON_STORAGE_KEY = 'thanh_van_sect_season';
-const SECT_SEASONS: Array<{ id: SectSeason; label: string; icon: string; bgUrl: string }> = [
-  { id: 'xuan', label: 'Xuân', icon: '🌸', bgUrl: './assets/aistudio/sect_xuan.png' },
-  { id: 'ha', label: 'Hạ', icon: '☀', bgUrl: './assets/aistudio/sect_ha.jpg' },
-  { id: 'thu', label: 'Thu', icon: '🍁', bgUrl: './assets/aistudio/1_80f8120e.png' },
-  { id: 'dong', label: 'Đông', icon: '❄', bgUrl: './assets/aistudio/sect_dong.jpg' },
+const SECT_SEASONS: Array<{ id: SectSeason; assetId: string; label: string; icon: string; bgUrl: string }> = [
+  { id: 'xuan', assetId: 'map_season_xuan', label: 'Xuân', icon: '🌸', bgUrl: './assets/aistudio/sect_xuan.png' },
+  { id: 'ha', assetId: 'map_season_ha', label: 'Hạ', icon: '☀', bgUrl: './assets/aistudio/sect_ha.jpg' },
+  { id: 'thu', assetId: 'map_main', label: 'Thu', icon: '🍁', bgUrl: './assets/aistudio/1_80f8120e.png' },
+  { id: 'dong', assetId: 'map_season_dong', label: 'Đông', icon: '❄', bgUrl: './assets/aistudio/sect_dong.jpg' },
 ];
 import {
   ASSET_OVERRIDES_EVENT,
   GlobalMapTuning,
+  getCustomAssetUrl,
   loadAssetStudioConfig,
 } from '../utils/assetOverrides';
 
@@ -1897,7 +1898,7 @@ export function SectMapView({
       >
         {/* Clean 16:9 Isometric Sect Panorama (4 Seasons: Xuân · Hạ · Thu · Đông, bottom 6.8% border cropped cleanly) */}
         <img
-          src={activeSeasonMeta.bgUrl}
+          src={getCustomAssetUrl(activeSeasonMeta.assetId, activeSeasonMeta.bgUrl)}
           alt={`Bản đồ Sơn Môn Thanh Vân Tiên Tông — Mùa ${activeSeasonMeta.label}`}
           draggable={false}
           className="absolute inset-0 w-full h-full object-fill pointer-events-none"

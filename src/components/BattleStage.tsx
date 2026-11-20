@@ -4,6 +4,7 @@ import { ElementType, SkillDef, SpiritRootGrade } from '../types/game';
 import { formatNum, getElementRelation, DiscipleCombatMods } from '../utils/gameLogic';
 import { getVfxRingIndexForRealm, getVfxRingPreset } from '../data/vfxRings';
 import { getVfxAuraIndexForRealm } from '../data/vfxAuras';
+import { getCustomAssetUrl } from '../utils/assetOverrides';
 import { VanKiemQuyTongVFX, VanKiemQuyTongVfxHandle } from './VanKiemQuyTongVFX';
 import { CharacterAuraVFX } from './CharacterAuraVFX';
 import { DisciplePortrait, ElementSeal, EnemyUnitSprite, SkillIcon } from './ElementIcons';
@@ -302,7 +303,9 @@ export const BattleStage: React.FC<BattleStageProps> = ({
   const responsiveUnitScale = isMobile ? 0.68 : isTablet ? 0.78 : 1.0;
 
   const arenaSpec = resolveArenaSpec(mode, targetId, bossId, arenaKey);
-  const { bgUrl: arenaBgUrl, floor } = arenaSpec;
+  const arenaAssetId = arenaSpec.bgUrl.split('/').pop()?.replace(/\.\w+$/, '') || '';
+  const arenaBgUrl = arenaAssetId ? getCustomAssetUrl(arenaAssetId, arenaSpec.bgUrl) : arenaSpec.bgUrl;
+  const { floor } = arenaSpec;
 
   const allPositioned = [
     ...allies.map((u, i) => ({

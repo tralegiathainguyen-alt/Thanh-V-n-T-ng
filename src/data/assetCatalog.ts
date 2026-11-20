@@ -19,7 +19,10 @@ export type AssetCategoryId =
   | 'resources'
   | 'veins'
   | 'hud'
-  | 'map';
+  | 'map'
+  | 'arenas'
+  | 'vfx_skills'
+  | 'vfx_ribbons';
 
 export interface AssetCatalogEntry {
   id: string;
@@ -34,6 +37,8 @@ export const ASSET_CATEGORIES: { id: AssetCategoryId; label: string }[] = [
   { id: 'characters', label: 'Nhân Vật' },
   { id: 'vfx_rings', label: 'VFX 16 Vòng' },
   { id: 'vfx_auras', label: 'Aura Thân (16)' },
+  { id: 'vfx_skills', label: 'VFX Kỹ Năng (23)' },
+  { id: 'vfx_ribbons', label: 'VFX Dải Lụa (12)' },
   { id: 'buildings', label: 'Công Trình' },
   { id: 'bosses', label: 'Boss' },
   { id: 'monsters', label: 'Quái Bí Cảnh' },
@@ -48,7 +53,8 @@ export const ASSET_CATEGORIES: { id: AssetCategoryId; label: string }[] = [
   { id: 'resources', label: 'Tài Nguyên' },
   { id: 'veins', label: 'Linh Mạch' },
   { id: 'hud', label: 'HUD & Khung' },
-  { id: 'map', label: 'Bản Đồ & Cây' },
+  { id: 'map', label: 'Bản Đồ 4 Mùa & Cây' },
+  { id: 'arenas', label: 'Lôi Đài Chiến Đấu (7)' },
 ];
 
 const CHAR_BASES: [string, string][] = [
@@ -365,9 +371,30 @@ function buildCatalog(): AssetCatalogEntry[] {
   list.push(
     {
       id: 'map_main',
-      name: 'Bản Đồ Sơn Môn Chính (2752x1536)',
+      name: 'Bản Đồ Sơn Môn — Mùa Thu (2752x1536)',
       category: 'map',
       url: './assets/aistudio/1_80f8120e.png',
+      kind: 'map',
+    },
+    {
+      id: 'map_season_xuan',
+      name: 'Bản Đồ Sơn Môn — Mùa Xuân (2752x1536)',
+      category: 'map',
+      url: './assets/aistudio/sect_xuan.png',
+      kind: 'map',
+    },
+    {
+      id: 'map_season_ha',
+      name: 'Bản Đồ Sơn Môn — Mùa Hạ (2752x1536)',
+      category: 'map',
+      url: './assets/aistudio/sect_ha.jpg',
+      kind: 'map',
+    },
+    {
+      id: 'map_season_dong',
+      name: 'Bản Đồ Sơn Môn — Mùa Đông (2752x1536)',
+      category: 'map',
+      url: './assets/aistudio/sect_dong.jpg',
       kind: 'map',
     },
     {
@@ -392,6 +419,65 @@ function buildCatalog(): AssetCatalogEntry[] {
       kind: 'map',
     },
   );
+
+  // Battle Arenas (7)
+  const ARENA_ITEMS: [string, string][] = [
+    ['arena_boss_kiem_ma', 'Lôi Đài Boss — Kiếm Ma'],
+    ['arena_boss_cuu_vi', 'Lôi Đài Boss — Cửu Vĩ Yêu Hồ'],
+    ['arena_boss_huyen_vu', 'Lôi Đài Boss — Huyền Vũ Thần Quy'],
+    ['arena_boss_ma_long', 'Lôi Đài Boss — Ma Long Thâm Uyên'],
+    ['arena_realm_moc', 'Lôi Đài Bí Cảnh — Thanh Mộc Lâm'],
+    ['arena_realm_bang', 'Lôi Đài Bí Cảnh — Huyền Băng Động'],
+    ['arena_realm_cuu_thien', 'Lôi Đài Bí Cảnh — Cửu Thiên Tiên Đài'],
+  ];
+  for (const [key, label] of ARENA_ITEMS) {
+    list.push({
+      id: key,
+      name: label,
+      category: 'arenas',
+      url: `./assets/arenas/${key}.jpg`,
+      kind: 'map',
+    });
+  }
+
+  // Van Kiem Quy Tong Ultimate VFX Pack (23 RGBA PNGs)
+  const VAN_KIEM_ITEMS: [string, string][] = [
+    ['circle', 'Vạn Kiếm · Trận Pháp Bát Quái'],
+    ['streak_01', 'Vạn Kiếm · Dải Kiếm Khí 01'],
+    ['streak_02', 'Vạn Kiếm · Dải Kiếm Khí 02'],
+    ['streak_03', 'Vạn Kiếm · Dải Kiếm Khí 03'],
+    ['p_sparkles', 'Vạn Kiếm · Hạt Lấp Lánh'],
+    ['p_shards', 'Vạn Kiếm · Mảnh Vỡ Vàng'],
+    ['p_star4', 'Vạn Kiếm · Sao 4 Cánh'],
+    ['p_star8', 'Vạn Kiếm · Chớp Sao 8 Cánh'],
+    ['p_dust', 'Vạn Kiếm · Bụi Vàng Kim'],
+    ['p_orb', 'Vạn Kiếm · Lõi Cầu Quang'],
+    ...Array.from({ length: 13 }, (_, i) => {
+      const idx = String(i + 1).padStart(2, '0');
+      return [`impact_${idx}`, `Vạn Kiếm · Khung Nổ ${idx}`] as [string, string];
+    }),
+  ];
+  for (const [key, label] of VAN_KIEM_ITEMS) {
+    list.push({
+      id: `vfx_vankiem_${key}`,
+      name: label,
+      category: 'vfx_skills',
+      url: `./assets/vfx_skills/van_kiem/${key}.png`,
+      kind: 'sprite',
+    });
+  }
+
+  // VFX Ribbons (12)
+  for (let i = 1; i <= 12; i += 1) {
+    const idx = String(i).padStart(2, '0');
+    list.push({
+      id: `vfx_ribbon_${idx}`,
+      name: `VFX Dải Lụa Tiên Khí #${idx}`,
+      category: 'vfx_ribbons',
+      url: `./assets/vfx_ribbons/ribbon_${idx}.png`,
+      kind: 'sprite',
+    });
+  }
 
   return list;
 }

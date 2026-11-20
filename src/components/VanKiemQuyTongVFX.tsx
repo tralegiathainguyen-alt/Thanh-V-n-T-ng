@@ -1,4 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { ASSET_OVERRIDES_EVENT, getCustomAssetUrl } from '../utils/assetOverrides';
 
 export interface VfxPoint {
   /** Horizontal stage coordinate in percentage (0..100) */
@@ -41,6 +42,12 @@ interface VanKiemAssetPack {
 
 let cachedAssetPromise: Promise<VanKiemAssetPack> | null = null;
 
+if (typeof window !== 'undefined') {
+  window.addEventListener(ASSET_OVERRIDES_EVENT, () => {
+    cachedAssetPromise = null;
+  });
+}
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -49,6 +56,10 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = (err) => reject(err);
     img.src = src;
   });
+}
+
+function resolveVanKiem(key: string): string {
+  return getCustomAssetUrl(`vfx_vankiem_${key}`, `${ASSET_BASE}/${key}.png`);
 }
 
 function loadVanKiemAssets(): Promise<VanKiemAssetPack> {
@@ -67,18 +78,18 @@ function loadVanKiemAssets(): Promise<VanKiemAssetPack> {
         pOrb,
         ...impacts
       ] = await Promise.all([
-        loadImage(`${ASSET_BASE}/circle.png`),
-        loadImage(`${ASSET_BASE}/streak_01.png`),
-        loadImage(`${ASSET_BASE}/streak_02.png`),
-        loadImage(`${ASSET_BASE}/streak_03.png`),
-        loadImage(`${ASSET_BASE}/p_sparkles.png`),
-        loadImage(`${ASSET_BASE}/p_shards.png`),
-        loadImage(`${ASSET_BASE}/p_star4.png`),
-        loadImage(`${ASSET_BASE}/p_star8.png`),
-        loadImage(`${ASSET_BASE}/p_dust.png`),
-        loadImage(`${ASSET_BASE}/p_orb.png`),
+        loadImage(resolveVanKiem('circle')),
+        loadImage(resolveVanKiem('streak_01')),
+        loadImage(resolveVanKiem('streak_02')),
+        loadImage(resolveVanKiem('streak_03')),
+        loadImage(resolveVanKiem('p_sparkles')),
+        loadImage(resolveVanKiem('p_shards')),
+        loadImage(resolveVanKiem('p_star4')),
+        loadImage(resolveVanKiem('p_star8')),
+        loadImage(resolveVanKiem('p_dust')),
+        loadImage(resolveVanKiem('p_orb')),
         ...Array.from({ length: 13 }, (_, i) =>
-          loadImage(`${ASSET_BASE}/impact_${String(i + 1).padStart(2, '0')}.png`),
+          loadImage(resolveVanKiem(`impact_${String(i + 1).padStart(2, '0')}`)),
         ),
       ]);
 

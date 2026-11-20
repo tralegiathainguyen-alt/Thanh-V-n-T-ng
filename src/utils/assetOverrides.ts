@@ -33,10 +33,6 @@ export interface VfxRingTuningOverride {
   showFloorLight: boolean;
   ringScale: number; // 0.5..2.0
   ringOffsetY: number; // -24..+24
-  auraEnabled?: boolean;
-  auraScale?: number; // 0.5..2.0
-  auraOffsetY?: number; // -30..+30
-  auraOpacity?: number; // 0.1..1.4
 }
 
 export interface AssetStudioConfig {
@@ -175,6 +171,11 @@ export function getResolvedAssetTransform(
     ...DEFAULT_ASSET_TRANSFORM,
     ...(cfg.assets[assetId] || {}),
   };
+}
+
+export function getCustomAssetUrl(assetId: string, fallbackUrl: string): string {
+  const cfg = loadAssetStudioConfig();
+  return cfg.assets[assetId]?.customDataUrl || fallbackUrl;
 }
 
 export function buildCssFilterFromTransform(t: AssetTransformOverride): string {
