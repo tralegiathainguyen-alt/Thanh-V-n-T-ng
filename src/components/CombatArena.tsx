@@ -591,7 +591,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       <div className="relative flex-1 overflow-y-auto flex flex-col justify-between p-4 sm:p-6 overflow-x-hidden">
         {/* Clean Isometric Sect Backdrop at 20% Opacity */}
         <img
-          src="/assets/aistudio/1_80f8120e.png"
+          src="./assets/aistudio/1_80f8120e.png"
           alt=""
           aria-hidden="true"
           draggable={false}

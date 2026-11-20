@@ -2226,7 +2226,7 @@ export default function App() {
                       {[
                         {
                           label: 'Hữu Bang & Linh Mạch',
-                          sprite: '/assets/sprites/hud/huu_bang.png',
+                          sprite: './assets/sprites/hud/huu_bang.png',
                           onClick: () => {
                             sfx.click();
                             setShowQuestPanel(false);
@@ -2236,7 +2236,7 @@ export default function App() {
                         },
                         {
                           label: 'Du Ngoạn Bí Cảnh',
-                          sprite: '/assets/sprites/hud/du_ngoan.png',
+                          sprite: './assets/sprites/hud/du_ngoan.png',
                           onClick: () => {
                             sfx.click();
                             setShowQuestPanel(false);
@@ -2246,7 +2246,7 @@ export default function App() {
                         },
                         {
                           label: 'Chợ Giao Dịch Tự Do',
-                          sprite: '/assets/sprites/hud/cho_giao_dich.png',
+                          sprite: './assets/sprites/hud/cho_giao_dich.png',
                           onClick: () => {
                             sfx.click();
                             setShowQuestPanel(false);
@@ -2401,7 +2401,7 @@ export default function App() {
               {
                 id: 'vip',
                 label: unclaimedVipCount > 0 ? `VIP ${vipLevel} (${unclaimedVipCount})` : `Nạp · VIP`,
-                sprite: '/assets/sprites/hud/vip.png',
+                sprite: './assets/sprites/hud/vip.png',
                 highlight: unclaimedVipCount > 0 || vipLevel === 0,
                 onClick: () => {
                   sfx.click();
@@ -2413,7 +2413,7 @@ export default function App() {
               {
                 id: 'offline',
                 label: 'Treo Máy',
-                sprite: '/assets/sprites/hud/treo_may.png',
+                sprite: './assets/sprites/hud/treo_may.png',
                 highlight: hasOfflineReady,
                 onClick: () => {
                   sfx.click();
@@ -2424,7 +2424,7 @@ export default function App() {
               {
                 id: 'gifts',
                 label: 'Quà Tặng',
-                sprite: '/assets/sprites/hud/qua_tang.png',
+                sprite: './assets/sprites/hud/qua_tang.png',
                 highlight: !state.dailyGiftClaimed,
                 onClick: () => {
                   sfx.click();
@@ -2435,7 +2435,7 @@ export default function App() {
               {
                 id: 'boss',
                 label: 'Săn Boss',
-                sprite: '/assets/sprites/hud/san_boss.png',
+                sprite: './assets/sprites/hud/san_boss.png',
                 highlight: false,
                 onClick: () => {
                   sfx.click();
@@ -2447,7 +2447,7 @@ export default function App() {
               {
                 id: 'rank',
                 label: 'Xếp Hạng',
-                sprite: '/assets/sprites/hud/xep_hang.png',
+                sprite: './assets/sprites/hud/xep_hang.png',
                 highlight: false,
                 onClick: () => {
                   sfx.click();
@@ -2486,7 +2486,7 @@ export default function App() {
           {[
             {
               label: 'Xây Dựng',
-              sprite: '/assets/sprites/hud/xay_dung.png',
+              sprite: './assets/sprites/hud/xay_dung.png',
               onClick: () => {
                 sfx.click();
                 setSelectedBuildingId('chinh_dien');
@@ -2495,7 +2495,7 @@ export default function App() {
             },
             {
               label: 'Tiên Đồ',
-              sprite: '/assets/sprites/hud/tien_do.png',
+              sprite: './assets/sprites/hud/tien_do.png',
               onClick: () => {
                 sfx.click();
                 setWorldTab('realms');
@@ -2504,7 +2504,7 @@ export default function App() {
             },
             {
               label: 'Đệ Tử',
-              sprite: '/assets/sprites/hud/de_tu.png',
+              sprite: './assets/sprites/hud/de_tu.png',
               onClick: () => {
                 sfx.click();
                 setActiveModal('disciples');
@@ -2512,7 +2512,7 @@ export default function App() {
             },
             {
               label: 'Cổ Bảo',
-              sprite: '/assets/sprites/hud/co_bao.png',
+              sprite: './assets/sprites/hud/co_bao.png',
               onClick: () => {
                 sfx.click();
                 setSelectedEquipDiscipleId(state.disciples[0]?.id || null);
@@ -2521,7 +2521,7 @@ export default function App() {
             },
             {
               label: 'Tiên Minh',
-              sprite: '/assets/sprites/hud/tien_minh.png',
+              sprite: './assets/sprites/hud/tien_minh.png',
               onClick: () => {
                 sfx.click();
                 setAllianceTab('alliance');
@@ -2558,7 +2558,7 @@ export default function App() {
             title="Mở Bản Đồ Thế Giới & Săn Boss Huyền Thoại"
           >
             <img
-              src="/assets/sprites/hud/the_gioi.png"
+              src="./assets/sprites/hud/the_gioi.png"
               alt="THẾ GIỚI"
               draggable={false}
               className="w-28 h-[86px] object-contain hud-icon-medallion"

@@ -29,25 +29,25 @@ export type ResourceSpriteKey =
   | 'stamina';
 
 export const BUILDING_SPRITE_URLS: Record<BuildingId, string> = {
-  chinh_dien: '/assets/sprites/buildings/chinh_dien.png',
-  tu_linh_tran: '/assets/sprites/buildings/tu_linh_tran.png',
-  duoc_dien: '/assets/sprites/buildings/duoc_dien.png',
-  luyen_dan_phong: '/assets/sprites/buildings/luyen_dan_phong.png',
-  luyen_khi_cac: '/assets/sprites/buildings/luyen_khi_cac.png',
-  tang_kinh_cac: '/assets/sprites/buildings/tang_kinh_cac.png',
-  truyen_tong_tran: '/assets/sprites/buildings/truyen_tong_tran.png',
+  chinh_dien: './assets/sprites/buildings/chinh_dien.png',
+  tu_linh_tran: './assets/sprites/buildings/tu_linh_tran.png',
+  duoc_dien: './assets/sprites/buildings/duoc_dien.png',
+  luyen_dan_phong: './assets/sprites/buildings/luyen_dan_phong.png',
+  luyen_khi_cac: './assets/sprites/buildings/luyen_khi_cac.png',
+  tang_kinh_cac: './assets/sprites/buildings/tang_kinh_cac.png',
+  truyen_tong_tran: './assets/sprites/buildings/truyen_tong_tran.png',
 };
 
 export const RESOURCE_SPRITE_URLS: Record<ResourceSpriteKey, string> = {
-  linhThach: '/assets/sprites/resources/linhThach.png',
-  tienNgoc: '/assets/sprites/resources/tienNgoc.png',
-  linhThao: '/assets/sprites/resources/linhThao.png',
-  huyenThiet: '/assets/sprites/resources/huyenThiet.png',
-  linhKhi: '/assets/sprites/resources/linhKhi.png',
-  cuongHoaThach: '/assets/sprites/resources/cuongHoaThach.png',
-  dotPhaDan: '/assets/sprites/resources/dotPhaDan.png',
-  tinhHoaBoss: '/assets/sprites/resources/tinhHoaBoss.png',
-  stamina: '/assets/sprites/resources/stamina.png',
+  linhThach: './assets/sprites/resources/linhThach.png',
+  tienNgoc: './assets/sprites/resources/tienNgoc.png',
+  linhThao: './assets/sprites/resources/linhThao.png',
+  huyenThiet: './assets/sprites/resources/huyenThiet.png',
+  linhKhi: './assets/sprites/resources/linhKhi.png',
+  cuongHoaThach: './assets/sprites/resources/cuongHoaThach.png',
+  dotPhaDan: './assets/sprites/resources/dotPhaDan.png',
+  tinhHoaBoss: './assets/sprites/resources/tinhHoaBoss.png',
+  stamina: './assets/sprites/resources/stamina.png',
 };
 
 export type DiscipleGender = 'male' | 'female';
@@ -64,8 +64,8 @@ export interface CharacterSheetConfig {
 
 const ARCHETYPE_SHEETS = {
   kim_nam: {
-    url: '/assets/sprites/characters/diep_thanh_van_sheet.png',
-    portraitUrl: '/assets/sprites/characters/diep_thanh_van.png',
+    url: './assets/sprites/characters/diep_thanh_van_sheet.png',
+    portraitUrl: './assets/sprites/characters/diep_thanh_van.png',
     attackCol: 2,
     jumpCols: [0, 1, 3] as [number, number, number],
     trailPrimary: '#F59E0B',
@@ -73,8 +73,8 @@ const ARCHETYPE_SHEETS = {
     particleColor: '#FDE047',
   },
   kim_nu: {
-    url: '/assets/sprites/characters/kim_nu_sheet.png',
-    portraitUrl: '/assets/sprites/characters/kim_nu.png',
+    url: './assets/sprites/characters/kim_nu_sheet.png',
+    portraitUrl: './assets/sprites/characters/kim_nu.png',
     attackCol: 2,
     jumpCols: [0, 1, 3] as [number, number, number],
     trailPrimary: '#EAB308',
@@ -82,8 +82,8 @@ const ARCHETYPE_SHEETS = {
     particleColor: '#FDE047',
   },
   thuy_nam: {
-    url: '/assets/sprites/characters/thuy_nam_sheet.png',
-    portraitUrl: '/assets/sprites/characters/thuy_nam.png',
+    url: './assets/sprites/characters/thuy_nam_sheet.png',
+    portraitUrl: './assets/sprites/characters/thuy_nam.png',
     attackCol: 2,
     jumpCols: [0, 1, 3] as [number, number, number],
     trailPrimary: '#0EA5E9',
@@ -91,8 +91,8 @@ const ARCHETYPE_SHEETS = {
     particleColor: '#7DD3FC',
   },
   thuy_nu: {
-    url: '/assets/sprites/characters/to_bang_tam_sheet.png',
-    portraitUrl: '/assets/sprites/characters/to_bang_tam.png',
+    url: './assets/sprites/characters/to_bang_tam_sheet.png',
+    portraitUrl: './assets/sprites/characters/to_bang_tam.png',
     attackCol: 2,
     jumpCols: [0, 1, 3] as [number, number, number],
     trailPrimary: '#38BDF8',
@@ -100,8 +100,8 @@ const ARCHETYPE_SHEETS = {
     particleColor: '#7DD3FC',
   },
   moc_nam: {
-    url: '/assets/sprites/characters/moc_nam_sheet.png',
-    portraitUrl: '/assets/sprites/characters/moc_nam.png',
+    url: './assets/sprites/characters/moc_nam_sheet.png',
+    portraitUrl: './assets/sprites/characters/moc_nam.png',
     attackCol: 2,
     jumpCols: [0, 1, 3] as [number, number, number],
     trailPrimary: '#16A34A',
@@ -109,8 +109,8 @@ const ARCHETYPE_SHEETS = {
     particleColor: '#4ADE80',
   },
   moc_nu: {
-    url: '/assets/sprites/characters/lam_thanh_dao_sheet.png',
-    portraitUrl: '/assets/sprites/characters/lam_thanh_dao.png',
+    url: './assets/sprites/characters/lam_thanh_dao_sheet.png',
+    portraitUrl: './assets/sprites/characters/lam_thanh_dao.png',
     attackCol: 2,
     jumpCols: [0, 1, 3] as [number, number, number],
     trailPrimary: '#22C55E',
@@ -118,8 +118,8 @@ const ARCHETYPE_SHEETS = {
     particleColor: '#4ADE80',
   },
   hoa_nam: {
-    url: '/assets/sprites/characters/tieu_xich_viem_sheet.png',
-    portraitUrl: '/assets/sprites/characters/tieu_xich_viem.png',
+    url: './assets/sprites/characters/tieu_xich_viem_sheet.png',
+    portraitUrl: './assets/sprites/characters/tieu_xich_viem.png',
     attackCol: 1,
     jumpCols: [0, 2, 3] as [number, number, number],
     trailPrimary: '#EF4444',
@@ -127,8 +127,8 @@ const ARCHETYPE_SHEETS = {
     particleColor: '#FB923C',
   },
   hoa_nu: {
-    url: '/assets/sprites/characters/hoa_nu_sheet.png',
-    portraitUrl: '/assets/sprites/characters/hoa_nu.png',
+    url: './assets/sprites/characters/hoa_nu_sheet.png',
+    portraitUrl: './assets/sprites/characters/hoa_nu.png',
     attackCol: 2,
     jumpCols: [0, 1, 3] as [number, number, number],
     trailPrimary: '#F97316',
@@ -136,8 +136,8 @@ const ARCHETYPE_SHEETS = {
     particleColor: '#FB923C',
   },
   tho_nam: {
-    url: '/assets/sprites/characters/tho_nam_sheet.png',
-    portraitUrl: '/assets/sprites/characters/tho_nam.png',
+    url: './assets/sprites/characters/tho_nam_sheet.png',
+    portraitUrl: './assets/sprites/characters/tho_nam.png',
     attackCol: 2,
     jumpCols: [0, 1, 3] as [number, number, number],
     trailPrimary: '#D97706',
@@ -145,8 +145,8 @@ const ARCHETYPE_SHEETS = {
     particleColor: '#F59E0B',
   },
   tho_nu: {
-    url: '/assets/sprites/characters/tho_nu_sheet.png',
-    portraitUrl: '/assets/sprites/characters/tho_nu.png',
+    url: './assets/sprites/characters/tho_nu_sheet.png',
+    portraitUrl: './assets/sprites/characters/tho_nu.png',
     attackCol: 2,
     jumpCols: [0, 1, 3] as [number, number, number],
     trailPrimary: '#CA8A04',
@@ -565,11 +565,11 @@ export function AnimatedSpriteSheet({
 }
 
 export const RARITY_FRAME_URLS: Record<Rarity, string> = {
-  thuong: '/assets/aistudio/thuong_a06147f5.png',
-  hiem: '/assets/aistudio/hiem_081b3ea3.png',
-  su_thi: '/assets/aistudio/su_thi_10bd2fad.png',
-  huyen_thoai: '/assets/aistudio/huyen_thoai_0cee9eda.png',
-  truyen_thuyet: '/assets/aistudio/truyen_thuyet_384d01bf.png',
+  thuong: './assets/aistudio/thuong_a06147f5.png',
+  hiem: './assets/aistudio/hiem_081b3ea3.png',
+  su_thi: './assets/aistudio/su_thi_10bd2fad.png',
+  huyen_thoai: './assets/aistudio/huyen_thoai_0cee9eda.png',
+  truyen_thuyet: './assets/aistudio/truyen_thuyet_384d01bf.png',
 };
 
 export function gemTierToRarity(tier: number): Rarity {
@@ -833,11 +833,11 @@ export function DisciplePortrait({
 }
 
 export const ELEMENT_SEAL_URLS: Record<ElementType, string> = {
-  Kim: '/assets/sprites/elements/Kim.png',
-  Moc: '/assets/sprites/elements/Moc.png',
-  Thuy: '/assets/sprites/elements/Thuy.png',
-  Hoa: '/assets/sprites/elements/Hoa.png',
-  Tho: '/assets/sprites/elements/Tho.png',
+  Kim: './assets/sprites/elements/Kim.png',
+  Moc: './assets/sprites/elements/Moc.png',
+  Thuy: './assets/sprites/elements/Thuy.png',
+  Hoa: './assets/sprites/elements/Hoa.png',
+  Tho: './assets/sprites/elements/Tho.png',
 };
 
 export function ElementSeal({
@@ -879,7 +879,7 @@ export function ElementSeal({
 
 export function getGemSpriteUrl(element: ElementType, tier: number): string {
   const clamped = Math.min(5, Math.max(1, Math.round(tier)));
-  return `/assets/sprites/gems/${element}_${clamped}.png`;
+  return `./assets/sprites/gems/${element}_${clamped}.png`;
 }
 
 export function GemSprite({
@@ -912,7 +912,7 @@ export function SkillIcon({
 }) {
   return (
     <img
-      src={`/assets/sprites/skills/${skillId}.png`}
+      src={`./assets/sprites/skills/${skillId}.png`}
       alt={name || skillId}
       draggable={false}
       className={`${className} object-contain shrink-0 select-none drop-shadow-[0_2px_5px_rgba(0,0,0,0.5)]`}
@@ -941,7 +941,7 @@ export function RealmBadge({
           : 'w-9 h-9';
   return (
     <img
-      src={`/assets/sprites/realms/realm_${majorIdx}.png`}
+      src={`./assets/sprites/realms/realm_${majorIdx}.png`}
       alt={realmDef?.majorName || `Cảnh giới ${majorIdx + 1}`}
       title={realmDef?.fullName}
       draggable={false}
@@ -970,7 +970,7 @@ export function SpiritRootSeal({
           : 'w-10 h-10';
   return (
     <img
-      src={`/assets/sprites/roots/${grade}.png`}
+      src={`./assets/sprites/roots/${grade}.png`}
       alt={meta?.name || grade}
       title={meta ? `${meta.name} (${meta.tierLabel})` : grade}
       draggable={false}
@@ -989,7 +989,7 @@ export function LegendarySetSprite({
   const setDef = EQUIPMENT_SETS[setId];
   return (
     <img
-      src={`/assets/sprites/sets/${setId}.png`}
+      src={`./assets/sprites/sets/${setId}.png`}
       alt={setDef?.name || setId}
       title={setDef?.name}
       draggable={false}
@@ -1009,7 +1009,7 @@ export function SpiritVeinSprite({
 }) {
   return (
     <img
-      src={`/assets/sprites/veins/${veinId}.png`}
+      src={`./assets/sprites/veins/${veinId}.png`}
       alt={name || veinId}
       draggable={false}
       className={`${className} object-contain shrink-0 select-none drop-shadow-[0_4px_7px_rgba(0,0,0,0.32)]`}
@@ -1018,9 +1018,9 @@ export function SpiritVeinSprite({
 }
 
 export function getEnemyUnitSpriteUrl(id: string): string | null {
-  if (/^boss_/.test(id)) return `/assets/sprites/bosses/${id}.png`;
-  if (/^e([1-9]|1[0-5])$/.test(id)) return `/assets/sprites/monsters/${id}.png`;
-  if (/^vg([1-9]|10)$/.test(id)) return `/assets/sprites/guardians/${id}.png`;
+  if (/^boss_/.test(id)) return `./assets/sprites/bosses/${id}.png`;
+  if (/^e([1-9]|1[0-5])$/.test(id)) return `./assets/sprites/monsters/${id}.png`;
+  if (/^vg([1-9]|10)$/.test(id)) return `./assets/sprites/guardians/${id}.png`;
   return null;
 }
 
@@ -1078,18 +1078,18 @@ export function EnemyUnitSprite({
 }
 
 export const EQUIPMENT_SPRITE_URLS: Record<EquipmentSlot, string> = {
-  non: '/assets/sprites/equipment/non.png',
-  giap_vai: '/assets/sprites/equipment/giap_vai.png',
-  giap_nguc: '/assets/sprites/equipment/giap_nguc.png',
-  giap_tay: '/assets/sprites/equipment/giap_tay.png',
-  gang_tay: '/assets/sprites/equipment/gang_tay.png',
-  dai_lung: '/assets/sprites/equipment/dai_lung.png',
-  quan: '/assets/sprites/equipment/quan.png',
-  giay: '/assets/sprites/equipment/giay.png',
-  vu_khi_chinh: '/assets/sprites/equipment/vu_khi_chinh.png',
-  vu_khi_phu: '/assets/sprites/equipment/vu_khi_phu.png',
-  day_chuyen: '/assets/sprites/equipment/day_chuyen.png',
-  nhan: '/assets/sprites/equipment/nhan.png',
+  non: './assets/sprites/equipment/non.png',
+  giap_vai: './assets/sprites/equipment/giap_vai.png',
+  giap_nguc: './assets/sprites/equipment/giap_nguc.png',
+  giap_tay: './assets/sprites/equipment/giap_tay.png',
+  gang_tay: './assets/sprites/equipment/gang_tay.png',
+  dai_lung: './assets/sprites/equipment/dai_lung.png',
+  quan: './assets/sprites/equipment/quan.png',
+  giay: './assets/sprites/equipment/giay.png',
+  vu_khi_chinh: './assets/sprites/equipment/vu_khi_chinh.png',
+  vu_khi_phu: './assets/sprites/equipment/vu_khi_phu.png',
+  day_chuyen: './assets/sprites/equipment/day_chuyen.png',
+  nhan: './assets/sprites/equipment/nhan.png',
 };
 
 export function EquipmentSlotIcon({

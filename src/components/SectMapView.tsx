@@ -167,7 +167,7 @@ interface MapOccluder {
 const MAP_OCCLUDERS: MapOccluder[] = [
   {
     id: 'maple_center',
-    src: '/assets/sprites/map/occ_maple_center.png',
+    src: './assets/sprites/map/occ_maple_center.png',
     leftPct: (1400 / MAP_IMG_W) * 100,
     topPct: (725 / MAP_IMG_H) * 100,
     widthPct: (310 / MAP_IMG_W) * 100,
@@ -176,7 +176,7 @@ const MAP_OCCLUDERS: MapOccluder[] = [
   },
   {
     id: 'maple_bottom',
-    src: '/assets/sprites/map/occ_maple_bottom.png',
+    src: './assets/sprites/map/occ_maple_bottom.png',
     leftPct: (1060 / MAP_IMG_W) * 100,
     topPct: (1095 / MAP_IMG_H) * 100,
     widthPct: (350 / MAP_IMG_W) * 100,
@@ -185,7 +185,7 @@ const MAP_OCCLUDERS: MapOccluder[] = [
   },
   {
     id: 'maple_top_left',
-    src: '/assets/sprites/map/occ_maple_top_left.png',
+    src: './assets/sprites/map/occ_maple_top_left.png',
     leftPct: 0,
     topPct: 0,
     widthPct: (740 / MAP_IMG_W) * 100,
@@ -1690,7 +1690,7 @@ export function SectMapView({
       >
         {/* Clean 16:9 Isometric Sect Panorama */}
         <img
-          src="/assets/aistudio/1_80f8120e.png"
+          src="./assets/aistudio/1_80f8120e.png"
           alt="Bản đồ Sơn Môn Thanh Vân Tiên Tông"
           draggable={false}
           className="absolute inset-0 w-full h-full object-fill pointer-events-none"
