@@ -1,5 +1,6 @@
 export type PaperDollGender = 'male' | 'female';
 export type PaperDollOutfitId = 'ngoai_mon' | 'kiem_khach' | 'dao_si' | 'luyen_dan';
+export type PaperDollWeaponId = 'none' | 'sword' | 'fan';
 export type PaperDollExpressionId =
   | 'vui_ve'
   | 'lanh_lung'
@@ -14,40 +15,75 @@ export interface PaperDollConfig {
   hairColor: string;
   expression: PaperDollExpressionId;
   outfit: PaperDollOutfitId;
+  weapon?: PaperDollWeaponId;
   footRingId: number; // 0 = off, 1..16 from vfx_rings
   auraId: number; // 0 = off, 1..16 from vfx_auras
 }
 
+const MALE_BASE = './assets/paper_doll/male';
+
 /**
- * Drop real transparent PNG URLs here later to automatically override
+ * Drop real transparent PNG URLs here to automatically override
  * any procedural SVG part of ChibiPaperDoll without changing component code.
  */
 export const CHARACTER_PART_ASSETS: {
   body: Record<PaperDollGender, { front?: string; back?: string }>;
-  outfits: Record<PaperDollOutfitId, { front?: string; back?: string }>;
+  outfits: Record<PaperDollGender, Partial<Record<PaperDollOutfitId, { front?: string; back?: string }>>>;
   backHair: Record<PaperDollGender, (string | undefined)[]>;
   frontHair: Record<PaperDollGender, (string | undefined)[]>;
-  faces: Partial<Record<PaperDollCombatExpression, string>>;
+  backViewHair: Record<PaperDollGender, string | undefined>;
+  faces: Record<PaperDollGender, Partial<Record<PaperDollCombatExpression, string>>>;
+  weapons: Partial<Record<Exclude<PaperDollWeaponId, 'none'>, string>>;
 } = {
   body: {
-    male: {},
+    male: {
+      front: `${MALE_BASE}/body_base.png`,
+      back: `${MALE_BASE}/body_base.png`,
+    },
     female: {},
   },
   outfits: {
-    ngoai_mon: {},
-    kiem_khach: {},
-    dao_si: {},
-    luyen_dan: {},
+    male: {
+      ngoai_mon: { front: `${MALE_BASE}/outfit_ngoai_mon.png`, back: `${MALE_BASE}/outfit_ngoai_mon.png` },
+      kiem_khach: { front: `${MALE_BASE}/outfit_kiem_khach.png`, back: `${MALE_BASE}/outfit_kiem_khach.png` },
+      dao_si: { front: `${MALE_BASE}/outfit_dao_si.png`, back: `${MALE_BASE}/outfit_dao_si.png` },
+      luyen_dan: { front: `${MALE_BASE}/outfit_dao_si.png`, back: `${MALE_BASE}/outfit_dao_si.png` },
+    },
+    female: {},
   },
   backHair: {
-    male: [undefined, undefined, undefined, undefined],
+    male: [undefined, `${MALE_BASE}/hair_1_back.png`, `${MALE_BASE}/hair_2_back.png`, `${MALE_BASE}/hair_1_back.png`],
     female: [undefined, undefined, undefined, undefined],
   },
   frontHair: {
-    male: [undefined, undefined, undefined, undefined],
+    male: [
+      `${MALE_BASE}/hair_0_front.png`,
+      `${MALE_BASE}/hair_1_front.png`,
+      `${MALE_BASE}/hair_2_front.png`,
+      `${MALE_BASE}/hair_2_front.png`,
+    ],
     female: [undefined, undefined, undefined, undefined],
   },
-  faces: {},
+  backViewHair: {
+    male: `${MALE_BASE}/hair_back.png`,
+    female: undefined,
+  },
+  faces: {
+    male: {
+      vui_ve: `${MALE_BASE}/face_vui_ve.png`,
+      lanh_lung: `${MALE_BASE}/face_lanh_lung.png`,
+      tinh_nghich: `${MALE_BASE}/face_vui_ve.png`,
+      nghiem_nghi: `${MALE_BASE}/face_quyet_tam.png`,
+      ngay_tho: `${MALE_BASE}/face_vui_ve.png`,
+      quyet_tam: `${MALE_BASE}/face_quyet_tam.png`,
+      hoang_hot: `${MALE_BASE}/face_hoang_hot.png`,
+    },
+    female: {},
+  },
+  weapons: {
+    sword: `${MALE_BASE}/weapon_sword.png`,
+    fan: `${MALE_BASE}/weapon_fan.png`,
+  },
 };
 
 export const HAIR_COLOR_PRESETS: Array<{ id: string; hex: string; name: string }> = [
@@ -126,6 +162,7 @@ export const DEFAULT_PAPER_DOLL_CONFIG: PaperDollConfig = {
   hairColor: '#232830',
   expression: 'vui_ve',
   outfit: 'kiem_khach',
+  weapon: 'sword',
   footRingId: 6,
   auraId: 6,
 };

@@ -82,12 +82,41 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
   const bodyPng = facingBack
     ? CHARACTER_PART_ASSETS.body[config.gender].back
     : CHARACTER_PART_ASSETS.body[config.gender].front;
+  const genderOutfits = CHARACTER_PART_ASSETS.outfits[config.gender] || {};
   const outfitPng = facingBack
-    ? CHARACTER_PART_ASSETS.outfits[config.outfit].back
-    : CHARACTER_PART_ASSETS.outfits[config.outfit].front;
+    ? genderOutfits[config.outfit]?.back
+    : genderOutfits[config.outfit]?.front;
   const backHairPng = CHARACTER_PART_ASSETS.backHair[config.gender][config.hairStyle];
-  const frontHairPng = CHARACTER_PART_ASSETS.frontHair[config.gender][config.hairStyle];
-  const facePng = CHARACTER_PART_ASSETS.faces[activeExpr];
+  const frontHairPng = facingBack
+    ? CHARACTER_PART_ASSETS.backViewHair[config.gender] || CHARACTER_PART_ASSETS.frontHair[config.gender][config.hairStyle]
+    : CHARACTER_PART_ASSETS.frontHair[config.gender][config.hairStyle];
+  const facePng = CHARACTER_PART_ASSETS.faces[config.gender]?.[activeExpr];
+  const weaponKey = config.weapon && config.weapon !== 'none' ? config.weapon : null;
+  const weaponPng = weaponKey ? CHARACTER_PART_ASSETS.weapons[weaponKey] : undefined;
+
+  const getHairPngFilter = (hex: string): string | undefined => {
+    switch (hex) {
+      case '#DCE5F0':
+        return 'grayscale(1) brightness(1.95) contrast(0.92)';
+      case '#E3B24C':
+        return 'sepia(1) saturate(2.6) hue-rotate(8deg) brightness(1.45)';
+      case '#C84332':
+        return 'sepia(1) saturate(3.2) hue-rotate(-32deg) brightness(1.12)';
+      case '#3B82C4':
+        return 'sepia(1) saturate(2.8) hue-rotate(175deg) brightness(1.15)';
+      case '#2B8A6E':
+        return 'sepia(1) saturate(2.6) hue-rotate(115deg) brightness(1.12)';
+      case '#8B5CF6':
+        return 'sepia(1) saturate(3.0) hue-rotate(225deg) brightness(1.18)';
+      case '#EC7FA9':
+        return 'sepia(1) saturate(2.4) hue-rotate(295deg) brightness(1.42)';
+      default:
+        return undefined;
+    }
+  };
+  const hairFilter = getHairPngFilter(config.hairColor);
+  const outfitFilter =
+    config.outfit === 'luyen_dan' ? 'hue-rotate(-38deg) saturate(1.85) brightness(0.88)' : undefined;
 
   const isRunning = motionState === 'run';
   const isIdle = motionState === 'idle';
@@ -146,6 +175,78 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
           ).toFixed(3)}, ${squashY.toFixed(3)})`,
         }}
       >
+        {bodyPng ? (
+          /* REAL PNG PAPER DOLL STACK (256x320 unified alignment) */
+          <div className="absolute inset-0">
+            {!facingBack && backHairPng && (
+              <img
+                src={backHairPng}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-contain transition-transform duration-150"
+                style={{
+                  transformOrigin: '50% 42%',
+                  transform: `rotate(${(capeSwayDeg * 0.45).toFixed(1)}deg)`,
+                  filter: hairFilter,
+                }}
+              />
+            )}
+            <img
+              src={bodyPng}
+              alt=""
+              draggable={false}
+              className="absolute inset-0 w-full h-full object-contain"
+            />
+            {outfitPng && (
+              <img
+                src={outfitPng}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-contain"
+                style={{ filter: outfitFilter }}
+              />
+            )}
+            {!facingBack && facePng && (
+              <img
+                src={facePng}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-contain"
+                style={{
+                  transformOrigin: '52% 30%',
+                  transform: isBlinking ? 'scaleY(0.95)' : 'scaleY(1)',
+                  filter: isBlinking ? 'brightness(0.97)' : undefined,
+                  transition: 'transform 60ms ease-in-out',
+                }}
+              />
+            )}
+            {frontHairPng && (
+              <img
+                src={frontHairPng}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-contain"
+                style={{ filter: hairFilter }}
+              />
+            )}
+            {weaponPng && (
+              <img
+                src={weaponPng}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-contain"
+                style={{
+                  transform:
+                    motionState === 'attack'
+                      ? 'translate(8px, -6px) rotate(14deg)'
+                      : 'translateY(0px)',
+                  transition: 'transform 150ms ease-out',
+                }}
+              />
+            )}
+          </div>
+        ) : (
+          <>
         {/* LAYER 3: Back Hair & Flowing Cape (lags slightly when running) */}
         <div
           className="absolute inset-0 transition-transform duration-150"
@@ -476,6 +577,8 @@ export const ChibiPaperDoll: React.FC<ChibiPaperDollProps> = ({
             </svg>
           )}
         </div>
+          </>
+        )}
       </div>
 
       {/* LAYER 8: Body Aura VFX (existing transparent vfx_auras, subtly offset so face stays crisp) */}

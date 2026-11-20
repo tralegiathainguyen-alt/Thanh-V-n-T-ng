@@ -222,6 +222,34 @@ export const CharacterCreatorPanel: React.FC<CharacterCreatorPanelProps> = ({
         })}
       </div>
 
+      {/* 4b. Handheld Weapon (Phi Kiếm / Quạt Xếp / Không) */}
+      <div className="grid grid-cols-3 gap-1">
+        {(
+          [
+            { id: 'none', icon: '∅', label: 'Tay Không' },
+            { id: 'sword', icon: '⚔', label: 'Phi Kiếm' },
+            { id: 'fan', icon: '🪭', label: 'Quạt Xếp' },
+          ] as const
+        ).map((w) => {
+          const active = (config.weapon || 'sword') === w.id;
+          return (
+            <button
+              key={w.id}
+              type="button"
+              onClick={() => update({ weapon: w.id })}
+              className={`py-1 px-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer border transition-all ${
+                active
+                  ? 'bg-[#234A42] border-[#F5D687] text-[#FFF3C4]'
+                  : 'bg-[#172E2C] border-transparent text-[#BFD4CB] hover:bg-[#203E3B]'
+              }`}
+            >
+              <span>{w.icon}</span>
+              <span>{w.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* 5. Quick Foot Ring & Body Aura Icon Pickers */}
       <div className="space-y-1.5 pt-1 border-t border-[#C9A45C]/25">
         <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
