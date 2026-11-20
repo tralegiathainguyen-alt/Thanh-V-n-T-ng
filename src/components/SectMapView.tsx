@@ -1809,39 +1809,47 @@ export function SectMapView({
         isDragging ? 'cursor-grabbing' : canPan ? 'cursor-grab' : 'cursor-default'
       }`}
     >
-      {/* Atmospheric Xianxia misty backdrop for portrait mobile full-sect view */}
+      {/* Atmospheric Xianxia golden sky & cloud sea backdrop for portrait mobile full-sect view */}
       {base.isPortraitMobile && (
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-[#3A3528] via-[#C8AD7A]/45 to-[#162826]" />
           <img
             src="./assets/aistudio/1_80f8120e.png"
             alt=""
             aria-hidden="true"
             draggable={false}
-            className="w-full h-full object-cover scale-125 blur-2xl opacity-45 saturate-90"
+            className="w-full h-full object-cover scale-125 blur-xl opacity-65 saturate-110"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0E1E1D]/85 via-[#132624]/35 to-[#0E1E1D]/90" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#172826]/75 via-transparent to-[#112220]/85" />
         </div>
       )}
 
       {/* Aspect-locked stage: background art + occluders + VFX canvas + buildings + disciples share 100% identical coordinates */}
       <div
-        className={`absolute z-0 isolate ${isSmoothZoom ? 'transition-[left,top,width,height] duration-200 ease-out' : ''} ${
-          base.isPortraitMobile ? 'shadow-[0_0_40px_rgba(0,0,0,0.65)] ring-1 ring-[#C9A45C]/35' : ''
-        }`}
+        className={`absolute z-0 isolate ${isSmoothZoom ? 'transition-[left,top,width,height] duration-200 ease-out' : ''}`}
         style={{
           width: `${stageW}px`,
           height: `${stageH}px`,
           left: `${resolvedPos.left}px`,
           top: `${resolvedPos.top}px`,
+          ...(base.isPortraitMobile && zoom <= 1.05
+            ? {
+                WebkitMaskImage:
+                  'linear-gradient(to bottom, transparent 0%, black 7%, black 88%, transparent 94%)',
+                maskImage:
+                  'linear-gradient(to bottom, transparent 0%, black 7%, black 88%, transparent 94%)',
+              }
+            : {}),
         }}
       >
-        {/* Clean 16:9 Isometric Sect Panorama */}
+        {/* Clean 16:9 Isometric Sect Panorama (bottom 6.8% baked-in border cropped cleanly) */}
         <img
           src="./assets/aistudio/1_80f8120e.png"
           alt="Bản đồ Sơn Môn Thanh Vân Tiên Tông"
           draggable={false}
           className="absolute inset-0 w-full h-full object-fill pointer-events-none"
           style={{
+            clipPath: 'inset(0 0 6.8% 0)',
             filter: `brightness(${mapTuning.mapBrightness.toFixed(2)}) contrast(${mapTuning.mapContrast.toFixed(2)}) saturate(${mapTuning.mapSaturate.toFixed(2)})`,
           }}
         />

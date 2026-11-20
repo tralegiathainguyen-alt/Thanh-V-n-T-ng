@@ -2029,7 +2029,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
             })()}
             <div className="min-w-0">
               <div className="flex items-center gap-1 sm:gap-2">
-                <span className="font-bold text-[11px] sm:text-sm text-[#FBE9B7] truncate max-w-[78px] sm:max-w-none">
+                <span className="hidden sm:inline font-bold text-sm text-[#FBE9B7] truncate">
                   {state.sectName}
                 </span>
                 <button
@@ -2038,11 +2038,11 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                     setVipTab('recharge');
                     setActiveModal('vip');
                   }}
-                  className="px-1.5 sm:px-2 py-0.5 rounded bg-gradient-to-r from-[#A66E14] via-[#E5B85B] to-[#A66E14] text-[#1D1306] text-[9px] sm:text-[10px] font-mono font-bold hover:brightness-110 cursor-pointer shrink-0 whitespace-nowrap"
+                  className="px-1.5 sm:px-2 py-0.5 rounded bg-gradient-to-r from-[#A66E14] via-[#E5B85B] to-[#A66E14] text-[#1D1306] text-[9.5px] sm:text-[10px] font-mono font-bold hover:brightness-110 cursor-pointer shrink-0 whitespace-nowrap"
                   title="Mở Điện Chí Tôn VIP"
                 >
                   VIP {vipLevel}
-                  {vipLevel >= 20 ? ' MAX' : ''}
+                  <span className="hidden sm:inline">{vipLevel >= 20 ? ' MAX' : ''}</span>
                 </button>
                 {vipLevel >= 5 && (() => {
                   const activeAutoCount =
@@ -2059,7 +2059,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                           sfx.click();
                           setShowAutoMenu((prev) => !prev);
                         }}
-                        className={`px-1.5 sm:px-2 py-0.5 rounded border text-[9px] sm:text-[10px] font-bold flex items-center gap-0.5 sm:gap-1 cursor-pointer transition-colors whitespace-nowrap ${
+                        className={`hidden sm:flex px-2 py-0.5 rounded border text-[10px] font-bold items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
                           activeAutoCount > 0
                             ? 'bg-[#174834] border-[#6EE7B7]/80 text-[#E6FFF3] hover:bg-[#1E5C42]'
                             : 'bg-[#1A2F2D] border-[#C9A45C]/50 text-[#D7CBB0] hover:bg-[#233E3B]'
@@ -2067,8 +2067,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                         title="Bảng bật/tắt Tự Động Hóa VIP"
                       >
                         <Bot className="w-3 h-3" />
-                        <span className="hidden sm:inline">Auto {activeAutoCount}/{maxAutoCount}</span>
-                        <span className="sm:hidden">{activeAutoCount}/{maxAutoCount}</span>
+                        <span>Auto {activeAutoCount}/{maxAutoCount}</span>
                         <ChevronDown className={`w-3 h-3 transition-transform ${showAutoMenu ? 'rotate-180' : ''}`} />
                       </button>
 
@@ -2078,7 +2077,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
                             className="fixed inset-0 z-40 bg-black/25 sm:bg-transparent"
                             onClick={() => setShowAutoMenu(false)}
                           />
-                          <div className="fixed left-2 right-2 top-[calc(58px+env(safe-area-inset-top))] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 z-50 sm:w-64 rounded-xl bg-[#142725]/98 border-2 border-[#C9A45C] shadow-2xl p-2.5 space-y-1.5 text-xs text-[#F5ECD5]">
+                          <div className="fixed left-2 right-2 top-[calc(102px+env(safe-area-inset-top))] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 z-50 sm:w-64 rounded-xl bg-[#142725]/98 border-2 border-[#C9A45C] shadow-2xl p-2.5 space-y-1.5 text-xs text-[#F5ECD5]">
                             <div className="flex items-center justify-between pb-1.5 border-b border-[#C9A45C]/30">
                               <span className="font-bold text-[#FCE6A6]">Tự Động Hóa VIP</span>
                               <button
@@ -2310,44 +2309,72 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
 
       </header>
 
-      {/* LEFT FLOATING STACK: COLLAPSIBLE QUESTS & SHORTCUTS */}
+      {/* LEFT FLOATING STACK: COLLAPSIBLE QUESTS & SHORTCUTS (+ Mobile Auto VIP trigger) */}
       <aside className="fixed left-1.5 sm:left-3 top-[calc(58px+env(safe-area-inset-top))] sm:top-[88px] z-20 flex flex-col pointer-events-none">
         {/* Unified Collapsible Quests & Shortcuts Drawer (collapsed by default for clean map) */}
         <div className="pointer-events-auto">
           {(() => {
             const unclaimedQuests = state.quests.filter((q) => !q.claimed);
             const readyCount = unclaimedQuests.filter((q) => q.progress >= q.target).length;
+            const activeAutoCount =
+              (state.vip.autoDiscipleEnabled ? 1 : 0) +
+              (vipLevel >= 6 && state.vip.autoSectEnabled ? 1 : 0) +
+              (vipLevel >= 7 && state.vip.autoGemEnabled ? 1 : 0) +
+              (vipLevel >= 10 && state.vip.autoWorldEnabled ? 1 : 0);
+            const maxAutoCount = vipLevel >= 10 ? 4 : vipLevel >= 7 ? 3 : vipLevel >= 6 ? 2 : 1;
             return (
               <div className="relative">
-                <button
-                  onClick={() => {
-                    sfx.click();
-                    setShowQuestPanel((prev) => !prev);
-                  }}
-                  className={`w-fit flex items-center gap-1.5 sm:gap-2 shortcut-banner-btn px-1 py-0.5 text-[11px] sm:text-xs font-semibold cursor-pointer ${
-                    readyCount > 0 ? 'text-[#FDE047]' : 'text-[#FCECC8]'
-                  }`}
-                >
-                  <span
-                    className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border flex items-center justify-center shrink-0 shadow ${
-                      readyCount > 0
-                        ? 'bg-[#8A5A0F] border-[#FDE047] text-[#FFF7D6]'
-                        : 'bg-[#1D3532] border-[#E5C272] text-[#F5D687]'
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => {
+                      sfx.click();
+                      setShowQuestPanel((prev) => !prev);
+                    }}
+                    className={`w-fit flex items-center gap-1.5 sm:gap-2 shortcut-banner-btn px-1 py-0.5 text-[11px] sm:text-xs font-semibold cursor-pointer ${
+                      readyCount > 0 ? 'text-[#FDE047]' : 'text-[#FCECC8]'
                     }`}
                   >
-                    <ScrollText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  </span>
-                  <span className="whitespace-nowrap drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
-                    {readyCount > 0
-                      ? `Nhiệm Vụ (${readyCount} quà)`
-                      : unclaimedQuests.length > 0
-                        ? `Nhiệm Vụ (${unclaimedQuests.length})`
-                        : 'Tiện Ích'}
-                  </span>
-                  <ChevronDown
-                    className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#E5C272] transition-transform ${showQuestPanel ? 'rotate-180' : ''}`}
-                  />
-                </button>
+                    <span
+                      className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border flex items-center justify-center shrink-0 shadow ${
+                        readyCount > 0
+                          ? 'bg-[#8A5A0F] border-[#FDE047] text-[#FFF7D6]'
+                          : 'bg-[#1D3532] border-[#E5C272] text-[#F5D687]'
+                      }`}
+                    >
+                      <ScrollText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </span>
+                    <span className="whitespace-nowrap drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+                      {readyCount > 0
+                        ? `Nhiệm Vụ (${readyCount} quà)`
+                        : unclaimedQuests.length > 0
+                          ? `Nhiệm Vụ (${unclaimedQuests.length})`
+                          : 'Tiện Ích'}
+                    </span>
+                    <ChevronDown
+                      className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#E5C272] transition-transform ${showQuestPanel ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  {vipLevel >= 5 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sfx.click();
+                        setShowAutoMenu((prev) => !prev);
+                      }}
+                      className={`sm:hidden h-7 px-2 rounded-lg border text-[10.5px] font-bold flex items-center gap-1 shadow-md cursor-pointer transition-colors whitespace-nowrap ${
+                        activeAutoCount > 0
+                          ? 'bg-[#174834]/95 border-[#6EE7B7]/85 text-[#E6FFF3]'
+                          : 'bg-[#1A2F2D]/95 border-[#C9A45C]/70 text-[#FCECC8]'
+                      }`}
+                      title="Bảng bật/tắt Tự Động Hóa VIP"
+                    >
+                      <Bot className="w-3.5 h-3.5" />
+                      <span>{activeAutoCount}/{maxAutoCount}</span>
+                      <ChevronDown className={`w-3 h-3 transition-transform ${showAutoMenu ? 'rotate-180' : ''}`} />
+                    </button>
+                  )}
+                </div>
 
                 {showQuestPanel && (
                   <div className="mt-1.5 w-[235px] sm:w-[255px] rounded-xl bg-[#142725]/96 border border-[#C9A45C]/80 shadow-xl p-2 space-y-2">
