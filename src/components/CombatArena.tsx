@@ -476,8 +476,8 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         y: tgtCoord.y,
       };
     } else if (skill.target === 'all') {
-      // AoE ultimate: glide slightly toward center-stage and levitate!
-      dashTo = { x: acting.isAlly ? 43 : 57, y: 55 };
+      // AoE ultimate: glide toward center of stone platform and levitate!
+      dashTo = { x: acting.isAlly ? 45 : 55, y: 71 };
       leapY = -18;
     } else {
       // Ally heal / shield: levitate gracefully in place

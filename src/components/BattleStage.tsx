@@ -98,35 +98,35 @@ function resolveArenaBackdrop(mode: 'realm' | 'boss' | 'vein', bossId?: string):
   return './assets/aistudio/1_80f8120e.png';
 }
 
-// 2.5D Curved Formation (2 front row, 3 back row) for Allies (left)
+// 2.5D Curved Formation (2 front row, 3 back row) — coordinates represent FEET position squarely on the stone floor!
 const ALLY_SLOTS: FormationCoord[] = [
-  { x: 33, y: 50 }, // Front top
-  { x: 35, y: 71 }, // Front bottom
-  { x: 18, y: 42 }, // Back top
-  { x: 15, y: 60 }, // Back mid
-  { x: 20, y: 79 }, // Back bottom
+  { x: 39, y: 65 }, // Front top
+  { x: 41, y: 78 }, // Front bottom
+  { x: 28, y: 61 }, // Back top
+  { x: 25, y: 72 }, // Back mid
+  { x: 30, y: 83 }, // Back bottom
 ];
 
-// 2.5D Curved Formation (2 front row, 3 back row) for Enemies (right)
+// 2.5D Curved Formation (2 front row, 3 back row) for Enemies (right side of stone floor)
 const ENEMY_SLOTS: FormationCoord[] = [
-  { x: 67, y: 50 }, // Front top
-  { x: 65, y: 71 }, // Front bottom
-  { x: 82, y: 42 }, // Back top
-  { x: 85, y: 60 }, // Back mid
-  { x: 80, y: 79 }, // Back bottom
+  { x: 61, y: 65 }, // Front top
+  { x: 59, y: 78 }, // Front bottom
+  { x: 72, y: 61 }, // Back top
+  { x: 75, y: 72 }, // Back mid
+  { x: 70, y: 83 }, // Back bottom
 ];
 
-const SINGLE_BOSS_SLOT: FormationCoord = { x: 73, y: 60 };
+const SINGLE_BOSS_SLOT: FormationCoord = { x: 68, y: 75 };
 
 export function getUnitHomeCoord(unit: StageCombatUnit, indexInTeam: number, teamSize: number): FormationCoord {
   if (unit.isAlly) {
-    if (teamSize === 1) return { x: 26, y: 60 };
-    if (teamSize === 2) return indexInTeam === 0 ? { x: 30, y: 51 } : { x: 30, y: 71 };
+    if (teamSize === 1) return { x: 34, y: 73 };
+    if (teamSize === 2) return indexInTeam === 0 ? { x: 35, y: 65 } : { x: 36, y: 79 };
     if (teamSize === 3) {
       const map3 = [
-        { x: 33, y: 60 },
-        { x: 18, y: 46 },
-        { x: 19, y: 74 },
+        { x: 40, y: 72 },
+        { x: 27, y: 64 },
+        { x: 29, y: 80 },
       ];
       return map3[indexInTeam] || ALLY_SLOTS[indexInTeam % ALLY_SLOTS.length];
     }
@@ -134,12 +134,12 @@ export function getUnitHomeCoord(unit: StageCombatUnit, indexInTeam: number, tea
   }
 
   if (teamSize === 1) return SINGLE_BOSS_SLOT;
-  if (teamSize === 2) return indexInTeam === 0 ? { x: 70, y: 51 } : { x: 70, y: 71 };
+  if (teamSize === 2) return indexInTeam === 0 ? { x: 65, y: 65 } : { x: 64, y: 79 };
   if (teamSize === 3) {
     const map3 = [
-      { x: 67, y: 60 },
-      { x: 82, y: 46 },
-      { x: 81, y: 74 },
+      { x: 60, y: 72 },
+      { x: 73, y: 64 },
+      { x: 71, y: 80 },
     ];
     return map3[indexInTeam] || ENEMY_SLOTS[indexInTeam % ENEMY_SLOTS.length];
   }
@@ -343,6 +343,10 @@ export const BattleStage: React.FC<BattleStageProps> = ({
               : null;
 
           const knockbackX = isHit ? (u.isAlly ? -16 : 16) : 0;
+          // Subtle 2.5D perspective depth scaling (units further back on floor are slightly smaller)
+          const depthScale = isGiantBoss
+            ? 1.0
+            : Math.max(0.88, Math.min(1.08, 0.88 + ((curY - 58) / 26) * 0.18));
 
           return (
             <div
@@ -354,7 +358,8 @@ export const BattleStage: React.FC<BattleStageProps> = ({
                 left: `${curX}%`,
                 top: `${curY}%`,
                 zIndex,
-                transform: `translate(-50%, -62%) translate(${knockbackX}px, ${leapY}px)`,
+                transform: `translate(-50%, -92%) translate(${knockbackX}px, ${leapY}px) scale(${depthScale.toFixed(3)})`,
+                transformOrigin: 'bottom center',
               }}
               className={`absolute flex flex-col items-center transition-[left,top,transform,opacity] ${moveDurClass} ease-out ${
                 dead
