@@ -1809,15 +1809,83 @@ export function SectMapView({
     }
     return 'thu';
   });
-  const handleSelectSeason = (next: SectSeason) => {
-    setSeason(next);
+  const [prevSeason, setPrevSeason] = useState<SectSeason | null>(null);
+  const [seasonCycleSec, setSeasonCycleSec] = useState<number>(() => {
+    try {
+      const raw = window.localStorage.getItem('thanh_van_sect_season_cycle_sec');
+      if (raw !== null) {
+        const parsed = Number(raw);
+        if ([0, 30, 60, 180, 300].includes(parsed)) return parsed;
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+    return 60; // Default: auto-rotate every 60 seconds (1 minute)
+  });
+
+  const transitionToSeason = useCallback((next: SectSeason) => {
+    setSeason((cur) => {
+      if (cur === next) return cur;
+      setPrevSeason(cur);
+      return next;
+    });
     try {
       window.localStorage.setItem(SECT_SEASON_STORAGE_KEY, next);
     } catch {
       // Ignore storage write errors
     }
+  }, []);
+
+  const handleSelectSeason = (next: SectSeason) => {
+    transitionToSeason(next);
   };
+
+  const handleCycleSeasonInterval = () => {
+    const options = [60, 180, 300, 0, 30];
+    const idx = options.indexOf(seasonCycleSec);
+    const next = options[(idx + 1) % options.length];
+    setSeasonCycleSec(next);
+    try {
+      window.localStorage.setItem('thanh_van_sect_season_cycle_sec', String(next));
+    } catch {
+      // Ignore storage write errors
+    }
+  };
+
+  // Clear crossfade previous layer after 1.1s transition finishes
+  useEffect(() => {
+    if (!prevSeason) return;
+    const t = window.setTimeout(() => setPrevSeason(null), 1150);
+    return () => window.clearTimeout(t);
+  }, [prevSeason, season]);
+
+  // Automatic 4-season rotation timer (Xuân → Hạ → Thu → Đông)
+  useEffect(() => {
+    if (seasonCycleSec <= 0) return;
+    const order: SectSeason[] = ['xuan', 'ha', 'thu', 'dong'];
+    const timer = window.setInterval(() => {
+      setSeason((cur) => {
+        const next = order[(order.indexOf(cur) + 1) % order.length];
+        setPrevSeason(cur);
+        try {
+          window.localStorage.setItem(SECT_SEASON_STORAGE_KEY, next);
+        } catch {
+          // Ignore storage write errors
+        }
+        return next;
+      });
+    }, seasonCycleSec * 1000);
+    return () => window.clearInterval(timer);
+  }, [seasonCycleSec, season]);
+
   const activeSeasonMeta = SECT_SEASONS.find((s) => s.id === season) || SECT_SEASONS[2];
+  const prevSeasonMeta = prevSeason ? SECT_SEASONS.find((s) => s.id === prevSeason) || null : null;
+  const seasonCycleLabel =
+    seasonCycleSec === 0
+      ? 'Tắt'
+      : seasonCycleSec < 60
+        ? `${seasonCycleSec}s`
+        : `${Math.round(seasonCycleSec / 60)}p`;
 
   const stageParallaxRef = useRef<HTMLDivElement | null>(null);
   const fgAmbientRef = useRef<HTMLDivElement | null>(null);
@@ -1896,12 +1964,27 @@ export function SectMapView({
           willChange: 'transform',
         }}
       >
-        {/* Clean 16:9 Isometric Sect Panorama (4 Seasons: Xuân · Hạ · Thu · Đông, bottom 6.8% border cropped cleanly) */}
+        {/* Clean 16:9 Isometric Sect Panorama (4 Seasons: Xuân · Hạ · Thu · Đông with smooth crossfade) */}
+        {prevSeasonMeta && (
+          <img
+            key={`prev_${prevSeasonMeta.id}`}
+            src={getCustomAssetUrl(prevSeasonMeta.assetId, prevSeasonMeta.bgUrl)}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="absolute inset-0 w-full h-full object-fill pointer-events-none"
+            style={{
+              clipPath: 'inset(0 0 6.8% 0)',
+              filter: `brightness(${mapTuning.mapBrightness.toFixed(2)}) contrast(${mapTuning.mapContrast.toFixed(2)}) saturate(${mapTuning.mapSaturate.toFixed(2)})`,
+            }}
+          />
+        )}
         <img
+          key={`cur_${activeSeasonMeta.id}`}
           src={getCustomAssetUrl(activeSeasonMeta.assetId, activeSeasonMeta.bgUrl)}
           alt={`Bản đồ Sơn Môn Thanh Vân Tiên Tông — Mùa ${activeSeasonMeta.label}`}
           draggable={false}
-          className="absolute inset-0 w-full h-full object-fill pointer-events-none"
+          className="absolute inset-0 w-full h-full object-fill pointer-events-none animate-[fadeIn_1s_ease-out]"
           style={{
             clipPath: 'inset(0 0 6.8% 0)',
             filter: `brightness(${mapTuning.mapBrightness.toFixed(2)}) contrast(${mapTuning.mapContrast.toFixed(2)}) saturate(${mapTuning.mapSaturate.toFixed(2)})`,
@@ -2253,6 +2336,24 @@ export function SectMapView({
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={handleCycleSeasonInterval}
+            title={
+              seasonCycleSec > 0
+                ? `Tự động chuyển mùa mỗi ${seasonCycleLabel} (Nhấn để đổi: 30s · 1p · 3p · 5p · Tắt)`
+                : 'Tự động chuyển mùa đang tắt (Nhấn để bật lại)'
+            }
+            aria-label="Thời gian tự động chuyển mùa"
+            className={`px-1.5 h-6 rounded text-[10px] font-mono font-bold flex items-center gap-0.5 border-l border-[#C9A45C]/30 ml-0.5 cursor-pointer transition-colors ${
+              seasonCycleSec > 0
+                ? 'bg-[#234A42] text-[#8BE5C2] hover:bg-[#2C5B51]'
+                : 'text-[#9CB0A8] hover:bg-[#23423F]'
+            }`}
+          >
+            <span>⏱</span>
+            <span>{seasonCycleLabel}</span>
+          </button>
         </div>
       </div>
     </div>
