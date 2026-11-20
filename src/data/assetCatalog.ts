@@ -387,7 +387,7 @@ function buildCatalog(): AssetCatalogEntry[] {
       id: 'map_season_ha',
       name: 'Bản Đồ Sơn Môn — Mùa Hạ (2752x1536)',
       category: 'map',
-      url: './assets/aistudio/sect_ha.jpg',
+      url: './assets/aistudio/sect_ha.png',
       kind: 'map',
     },
     {
