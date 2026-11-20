@@ -87,31 +87,31 @@ export interface ArenaSpec {
 const ARENA_SPECS: Record<string, ArenaSpec> = {
   boss_kiem_ma: {
     bgUrl: './assets/arenas/arena_boss_kiem_ma.jpg',
-    floor: { minX: 24, maxX: 76, minY: 60, maxY: 83 },
+    floor: { minX: 27, maxX: 73, minY: 45, maxY: 70 },
   },
   boss_cuu_vi: {
     bgUrl: './assets/arenas/arena_boss_cuu_vi.jpg',
-    floor: { minX: 22, maxX: 78, minY: 65, maxY: 86 },
+    floor: { minX: 26, maxX: 74, minY: 50, maxY: 74 },
   },
   boss_huyen_vu: {
     bgUrl: './assets/arenas/arena_boss_huyen_vu.jpg',
-    floor: { minX: 27, maxX: 73, minY: 46, maxY: 66 },
+    floor: { minX: 27, maxX: 73, minY: 44, maxY: 66 },
   },
   boss_ma_long: {
     bgUrl: './assets/arenas/arena_boss_ma_long.jpg',
-    floor: { minX: 27, maxX: 73, minY: 51, maxY: 74 },
+    floor: { minX: 27, maxX: 73, minY: 46, maxY: 70 },
   },
   realm_moc: {
     bgUrl: './assets/arenas/arena_realm_moc.jpg',
-    floor: { minX: 24, maxX: 76, minY: 59, maxY: 83 },
+    floor: { minX: 26, maxX: 74, minY: 47, maxY: 71 },
   },
   realm_bang: {
     bgUrl: './assets/arenas/arena_realm_bang.jpg',
-    floor: { minX: 24, maxX: 76, minY: 59, maxY: 83 },
+    floor: { minX: 26, maxX: 74, minY: 47, maxY: 71 },
   },
   realm_cuu_thien: {
     bgUrl: './assets/arenas/arena_realm_cuu_thien.jpg',
-    floor: { minX: 24, maxX: 76, minY: 58, maxY: 82 },
+    floor: { minX: 26, maxX: 74, minY: 46, maxY: 70 },
   },
 };
 
@@ -148,26 +148,26 @@ export function resolveArenaSpec(
 
 // Normalized formation positions within [0..1] x [0..1] of each arena's stone floor box
 const ALLY_NORM_5: Array<[number, number]> = [
-  [0.31, 0.22], // Front top
-  [0.34, 0.78], // Front bottom
-  [0.09, 0.06], // Back top
-  [0.03, 0.50], // Back mid
-  [0.12, 0.94], // Back bottom
+  [0.34, 0.24], // Front top
+  [0.36, 0.76], // Front bottom
+  [0.12, 0.10], // Back top
+  [0.06, 0.50], // Back mid
+  [0.14, 0.90], // Back bottom
 ];
 
 const ENEMY_NORM_5: Array<[number, number]> = [
-  [0.69, 0.22], // Front top
-  [0.66, 0.78], // Front bottom
-  [0.91, 0.06], // Back top
-  [0.97, 0.50], // Back mid
-  [0.88, 0.94], // Back bottom
+  [0.66, 0.24], // Front top
+  [0.64, 0.76], // Front bottom
+  [0.88, 0.10], // Back top
+  [0.94, 0.50], // Back mid
+  [0.86, 0.90], // Back bottom
 ];
 
 function mapNormToFloor(nx: number, ny: number, floor: ArenaFloorBox, isMobile: boolean): FormationCoord {
   // On narrow mobile screens, widen horizontal floor span slightly so 5 allies never crowd
-  const padX = isMobile ? 8 : 0;
-  const minX = Math.max(10, floor.minX - padX);
-  const maxX = Math.min(90, floor.maxX + padX);
+  const padX = isMobile ? 6 : 0;
+  const minX = Math.max(12, floor.minX - padX);
+  const maxX = Math.min(88, floor.maxX + padX);
   return {
     x: minX + nx * (maxX - minX),
     y: floor.minY + ny * (floor.maxY - floor.minY),
@@ -182,20 +182,20 @@ export function getUnitHomeCoord(
   isMobile = false,
 ): FormationCoord {
   if (unit.isAlly) {
-    if (teamSize === 1) return mapNormToFloor(0.22, 0.55, floor, isMobile);
+    if (teamSize === 1) return mapNormToFloor(0.24, 0.52, floor, isMobile);
     if (teamSize === 2) {
       const pair: Array<[number, number]> = [
-        [0.24, 0.24],
-        [0.26, 0.80],
+        [0.26, 0.26],
+        [0.28, 0.76],
       ];
       const [nx, ny] = pair[indexInTeam] || pair[0];
       return mapNormToFloor(nx, ny, floor, isMobile);
     }
     if (teamSize === 3) {
       const tri: Array<[number, number]> = [
-        [0.32, 0.52],
-        [0.08, 0.16],
-        [0.12, 0.86],
+        [0.34, 0.50],
+        [0.10, 0.18],
+        [0.14, 0.84],
       ];
       const [nx, ny] = tri[indexInTeam] || tri[0];
       return mapNormToFloor(nx, ny, floor, isMobile);
@@ -205,7 +205,7 @@ export function getUnitHomeCoord(
   }
 
   // Enemies
-  if (teamSize === 1) return mapNormToFloor(0.82, 0.62, floor, isMobile);
+  if (teamSize === 1) return mapNormToFloor(0.78, 0.54, floor, isMobile);
   if (teamSize === 2) {
     const pair: Array<[number, number]> = [
       [0.76, 0.24],
