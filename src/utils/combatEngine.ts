@@ -72,7 +72,7 @@ export function getBossPhaseInfo(
         critResistPct: 25,
         atkBonusPct: 0,
         defBonusPct: 0,
-        desc: 'Miễn thương 45% · Kháng bạo 25% · Giới hạn ST mỗi đòn ≤ 0.8% HP tối đa',
+        desc: 'Miễn thương 45% · Kháng bạo 25% · Long Uy Hộ Thể (không giới hạn ST đợt)',
       };
     }
     if (hpPct > 30) {
@@ -241,20 +241,23 @@ export function calculateCombatDamage(input: CombatDamageInput): CombatDamageRes
     dmgScale *
     (0.95 + Math.random() * 0.1);
 
-  // World Boss Anti-One-Shot Cap: tối đa 0.8% HP tối đa Boss mỗi đòn đánh!
-  // (Và bảo đảm đòn đánh tối thiểu cho người chơi mới vẫn cảm nhận được lực đánh)
+  // Boss Thế Giới: KHÔNG ép trần cứng sát thương!
+  // Thay bằng cơ chế "Long Uy Hộ Thể" (giảm chấn phi tuyến mềm nếu 1 đòn vượt quá 2% HP tối đa):
+  // người chơi càng mạnh đánh càng to, nhưng không thể 1-hit kill Boss toàn server.
   let wasCapped = false;
   if (defender.archetype === 'world_boss') {
-    const singleHitCap = Math.round(defender.maxHp * 0.008); // 4,000,000 ST cho Boss 500M HP
-    if (computed > singleHitCap) {
-      computed = singleHitCap * (0.96 + Math.random() * 0.04);
+    const softThreshold = Math.round(defender.maxHp * 0.02); // 2% HP tối đa
+    if (computed > softThreshold) {
+      const excess = computed - softThreshold;
+      computed = softThreshold + Math.sqrt(excess * softThreshold);
       wasCapped = true;
     }
   } else if (defender.archetype === 'boss') {
-    // Legendary Boss: không để 1 đòn đơn vượt quá 48% HP tối đa nếu Boss đang trên 50% HP (giữ nhịp đánh 2 giai đoạn)
-    const bossPhaseGuard = Math.round(defender.maxHp * 0.48);
+    // Boss Huyền Thoại: giảm chấn mềm khi Boss đang trên 50% HP để giữ nhịp 2 giai đoạn
+    const bossPhaseGuard = Math.round(defender.maxHp * 0.45);
     if (defender.hp > defender.maxHp * 0.5 && computed > bossPhaseGuard) {
-      computed = bossPhaseGuard;
+      const excess = computed - bossPhaseGuard;
+      computed = bossPhaseGuard + Math.sqrt(excess * bossPhaseGuard) * 0.4;
       wasCapped = true;
     }
   }

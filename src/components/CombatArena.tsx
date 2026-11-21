@@ -28,7 +28,6 @@ import {
   calculateCombatDamage,
   getBossPhaseInfo,
 } from '../utils/combatEngine';
-import { WORLD_BOSS_WAVE_CAP } from '../data/worldBoss';
 import { sfx } from '../utils/sound';
 import {
   DisciplePortrait,
@@ -225,7 +224,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
   const buildRewards = (): BattleVictoryRewards => {
     const dropBonus = 1 + state.alliance.tech.dropLevel * 0.1;
     if (context.mode === 'world_boss') {
-      const dmg = Math.min(WORLD_BOSS_WAVE_CAP, Math.max(50_000, worldBossDamageRef.current));
+      const dmg = Math.max(1, worldBossDamageRef.current);
       return {
         linhThach: Math.round(35000 * dropBonus),
         linhThao: 400,
@@ -500,13 +499,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         const { finalDmg, isCrit, elementRelation: rel, armorPenPct, wasCapped, drPct } = dmgRes;
         if (isCrit) anyCrit = true;
 
-        // Enforce World Boss wave cap so 1 raid wave never exceeds 6% HP (30M ST)
-        let appliedDmg = finalDmg;
-        if (tgtArch === 'world_boss' && acting.isAlly) {
-          const remainingWaveBudget = Math.max(0, WORLD_BOSS_WAVE_CAP - worldBossDamageRef.current);
-          appliedDmg = Math.min(finalDmg, remainingWaveBudget);
-        }
-
+        const appliedDmg = finalDmg;
         totalDmgDealt += appliedDmg;
 
         let remainingDmg = appliedDmg;
@@ -555,7 +548,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         if (isCrit) tags.push('BẠO KÍCH!');
         if (armorPenPct >= 15) tags.push(`XUYÊN GIÁP ${armorPenPct}%`);
         if (drPct >= 30) tags.push(`MIỄN THƯƠNG ${drPct}%`);
-        if (wasCapped) tags.push('GIỚI HẠN ST');
+        if (wasCapped) tags.push('LONG UY GIẢM ST');
         if (triggeredImmortal) tags.push('BẤT HOẠI MIỄN TỬ!');
 
         pendingFloats.push({
@@ -597,12 +590,9 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         }
       }
 
-      // Boss Thế Giới Toàn Server: ghi nhận sát thương THỰC TẾ (không nhân ảo, có trần 6% HP/đợt)
+      // Boss Thế Giới Toàn Server: ghi nhận 100% sát thương THỰC TẾ không giới hạn trần
       if (context.mode === 'world_boss' && acting.isAlly && totalDmgDealt > 0) {
-        worldBossDamageRef.current = Math.min(
-          WORLD_BOSS_WAVE_CAP,
-          worldBossDamageRef.current + totalDmgDealt,
-        );
+        worldBossDamageRef.current += totalDmgDealt;
       }
 
       // Pháp Bảo Tế Luyện (Luyện Đan Đỉnh): Hút Máu theo tổng sát thương gây ra
@@ -1004,7 +994,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
             {context.mode === 'world_boss' && (
               <div className="font-mono font-bold text-[#FDE047] flex items-center gap-2">
                 <span>
-                  ST Đợt Này: {worldBossDamageRef.current.toLocaleString('vi-VN')} / {formatNum(WORLD_BOSS_WAVE_CAP)}
+                  ST Đợt Này: {worldBossDamageRef.current.toLocaleString('vi-VN')}
                 </span>
                 <span className="text-[#94A3B8]">·</span>
                 <span>Hiệp {round}/{context.worldBossMeta?.maxRounds ?? 5}</span>

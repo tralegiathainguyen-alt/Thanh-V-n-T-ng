@@ -196,7 +196,7 @@ export const WorldBossModal: React.FC<WorldBossModalProps> = ({
                     Kháng Bạo {hpPct > 65 ? '25%' : hpPct > 30 ? '30%' : '35%'}
                   </span>
                   <span className="px-2 py-0.5 rounded bg-black/40 border border-white/15 text-[#FDE68A] font-mono">
-                    Trần ST: 4M/đòn · 30M/đợt
+                    Không Giới Hạn ST · Long Uy Hộ Thể
                   </span>
                 </div>
               </div>

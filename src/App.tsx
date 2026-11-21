@@ -2018,7 +2018,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
     handleStartCombat({
       mode: 'world_boss',
       title: `Boss Thế Giới: ${WORLD_BOSS_DEF.name}`,
-      subtitle: `${wbWinStatus.slotLabel} · Xuất Trận 5 Hiệp · Giới Hạn 30M ST/Đợt`,
+      subtitle: `${wbWinStatus.slotLabel} · Xuất Trận 5 Hiệp · Không Giới Hạn Sát Thương`,
       targetId: WORLD_BOSS_DEF.id,
       staminaCost: 0,
       bossDef: WORLD_BOSS_DEF,

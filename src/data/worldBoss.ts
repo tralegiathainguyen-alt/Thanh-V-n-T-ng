@@ -18,28 +18,27 @@ export const WORLD_BOSS_SCHEDULES: WorldBossScheduleSlot[] = [
   { index: 3, label: 'Đợt 4 · Hợi Thì', hour: 21, minute: 30, durationMinutes: 30, timeText: '21:30 – 22:00' },
 ];
 
-export const WORLD_BOSS_MAX_HP = 500_000_000; // 500 Triệu HP toàn server
-export const WORLD_BOSS_WAVE_CAP = 30_000_000; // Tối đa 6% HP Boss mỗi đợt xuất trận (chống 1-hit kill)
+export const WORLD_BOSS_MAX_HP = 1_000_000_000; // 1 Tỷ HP toàn server
 export const WORLD_BOSS_ATTACK_COOLDOWN_MS = 10_000;
 
 export const WORLD_BOSS_DEF: BossDef = {
   id: 'boss_world_hon_don',
   name: 'Hỗn Độn Thiên Ma Long',
-  title: 'Boss Thế Giới Toàn Server · Thái Cổ Diệt Thế Long Tôn (500 Triệu HP)',
+  title: 'Boss Thế Giới Toàn Server · Thái Cổ Diệt Thế Long Tôn (1 Tỷ HP)',
   realmTier: 8,
   stageLabel: 'Toàn Server',
   arenaKey: 'boss_ma_long',
   element: 'Hoa',
-  recommendedPower: 1_200_000,
+  recommendedPower: 1_500_000,
   staminaCost: 0,
   hp: WORLD_BOSS_MAX_HP,
-  atk: 12_500,
-  def: 28_000,
+  atk: 14_000,
+  def: 32_000,
   spd: 165,
   setId: 'thai_co_long_hoang',
   guaranteedMinRarity: 'truyen_thuyet',
   description:
-    'Thái Cổ Ma Long 500 Triệu HP với 3 Giai Đoạn (Miễn Thương 45%→65%, Kháng Bạo 25%→35%, Giới Hạn ST 0.8% HP/đòn). Xuất hiện 4 lần/ngày (30 phút/đợt) để toàn server hợp lực tiêu diệt!',
+    'Thái Cổ Ma Long 1 Tỷ HP với 3 Giai Đoạn (Miễn Thương 45%→65%, Kháng Bạo 25%→35%, Long Uy Hộ Thể — không giới hạn sát thương đợt). Toàn server hợp lực tiêu diệt 4 lần/ngày (30 phút/đợt)!',
   skills: [
     {
       id: 'wb_skill_1',
@@ -197,8 +196,8 @@ const SERVER_RAIDER_TEMPLATES: Omit<WorldBossRaider, 'damage' | 'attacks'>[] = [
   { id: 'srv_14', name: 'Tụ Bảo Thương Minh', realmLabel: 'Kim Đan Viên Mãn', power: 120_000 },
 ];
 
-const WB_STORAGE_KEY = 'tvtt_world_boss_session_v2';
-const WB_CUSTOM_END_KEY = 'tvtt_world_boss_custom_end_v2';
+const WB_STORAGE_KEY = 'tvtt_world_boss_session_v3';
+const WB_CUSTOM_END_KEY = 'tvtt_world_boss_custom_end_v3';
 
 export interface WorldBossWindowStatus {
   isActive: boolean;
@@ -397,7 +396,7 @@ export function createFreshWorldBossSession(
     battleFeed: [
       {
         id: `feed_open_${Date.now()}`,
-        text: `Hỗn Độn Thiên Ma Long (500 Triệu HP · 3 Giai Đoạn) đã giáng lâm (${win.slotLabel})! Toàn server đang tập kết tiêu diệt!`,
+        text: `Hỗn Độn Thiên Ma Long (1 Tỷ HP · 3 Giai Đoạn) đã giáng lâm (${win.slotLabel})! Toàn server đang tập kết tiêu diệt!`,
         timeText: nowTimeStr(),
         highlight: true,
       },
@@ -413,7 +412,7 @@ export function tickServerRaiders(session: WorldBossSessionState): WorldBossSess
   const npcRaiders = session.raiders.filter((r) => !r.isPlayer);
   if (npcRaiders.length === 0) return session;
 
-  // Pick 2 random server sects to strike this tick (calibrated for 500M HP pool)
+  // Pick 2 random server sects to strike this tick (calibrated for 1B HP pool)
   const strikers = [
     npcRaiders[Math.floor(Math.random() * npcRaiders.length)],
     npcRaiders[Math.floor(Math.random() * npcRaiders.length)],
@@ -426,7 +425,7 @@ export function tickServerRaiders(session: WorldBossSessionState): WorldBossSess
   const phaseScale = hpPct > 65 ? 1.0 : hpPct > 30 ? 0.78 : 0.65;
 
   for (const s of strikers) {
-    const hit = Math.round(Math.max(220_000, s.power * (0.55 + Math.random() * 0.45) * phaseScale));
+    const hit = Math.round(Math.max(420_000, s.power * (1.1 + Math.random() * 0.85) * phaseScale));
     dmgMap.set(s.id, (dmgMap.get(s.id) || 0) + hit);
     totalTickDmg += hit;
   }
@@ -481,7 +480,7 @@ export function recordPlayerWorldBossDamage(
   playerPower: number,
   damageDealt: number,
 ): { updated: WorldBossSessionState; dealtFinishingBlow: boolean } {
-  const safeDmg = Math.max(50_000, Math.min(WORLD_BOSS_WAVE_CAP, Math.round(damageDealt)));
+  const safeDmg = Math.max(1, Math.round(damageDealt));
   const nextHp = Math.max(0, session.currentHp - safeDmg);
   const dealtFinishingBlow = !session.slain && nextHp <= 0;
   const slain = session.slain || nextHp <= 0;
