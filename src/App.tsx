@@ -2018,7 +2018,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
     handleStartCombat({
       mode: 'world_boss',
       title: `Boss Thế Giới: ${WORLD_BOSS_DEF.name}`,
-      subtitle: `${wbWinStatus.slotLabel} · Xuất Trận 4 Hiệp Gây Sát Thương Tối Đa`,
+      subtitle: `${wbWinStatus.slotLabel} · Xuất Trận 5 Hiệp · Giới Hạn 30M ST/Đợt`,
       targetId: WORLD_BOSS_DEF.id,
       staminaCost: 0,
       bossDef: WORLD_BOSS_DEF,
@@ -2026,7 +2026,7 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
         sessionKey: wbSession.sessionKey,
         bossMaxHp: wbSession.maxHp,
         bossCurrentHp: Math.max(1, wbSession.currentHp),
-        maxRounds: 4,
+        maxRounds: 5,
       },
       enemies: [
         {

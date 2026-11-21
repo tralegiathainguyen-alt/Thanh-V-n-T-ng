@@ -148,23 +148,56 @@ export const WorldBossModal: React.FC<WorldBossModalProps> = ({
                 )}
               </div>
 
-              {/* Global Server HP Bar */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="font-bold text-[#FCA5A5]">Sinh Lực Boss Toàn Server</span>
+              {/* Global Server HP Bar with 3 Phase Markers (65% & 30%) */}
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-1 text-xs font-mono">
+                  <span className="font-bold text-[#FCA5A5]">
+                    Sinh Lực Boss Toàn Server
+                  </span>
                   <span className="font-bold text-[#FEF08A]">
                     {session.currentHp.toLocaleString('vi-VN')} / {session.maxHp.toLocaleString('vi-VN')} ({hpPct.toFixed(1)}%)
                   </span>
                 </div>
-                <div className="h-4 w-full rounded-full bg-black/60 border border-[#C9A45C]/70 overflow-hidden p-0.5">
+                <div className="relative h-4 w-full rounded-full bg-black/60 border border-[#C9A45C]/70 overflow-hidden p-0.5">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
                       width: `${hpPct}%`,
                       background:
-                        'linear-gradient(90deg, #991B1B 0%, #DC2626 45%, #F97316 80%, #FDE047 100%)',
+                        hpPct > 65
+                          ? 'linear-gradient(90deg, #991B1B 0%, #DC2626 50%, #F97316 85%, #FDE047 100%)'
+                          : hpPct > 30
+                            ? 'linear-gradient(90deg, #581C87 0%, #9333EA 50%, #F97316 100%)'
+                            : 'linear-gradient(90deg, #450A0A 0%, #DC2626 55%, #F43F5E 100%)',
                     }}
                   />
+                  {/* Phase threshold notches at 30% and 65% */}
+                  <div className="absolute top-0 bottom-0 left-[30%] w-0.5 bg-white/70 pointer-events-none" title="Ngưỡng Giai Đoạn 3 (30% HP)" />
+                  <div className="absolute top-0 bottom-0 left-[65%] w-0.5 bg-white/70 pointer-events-none" title="Ngưỡng Giai Đoạn 2 (65% HP)" />
+                </div>
+                {/* Boss Combat Mechanics Specs Bar */}
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <span
+                    className="px-2 py-0.5 rounded-full font-black text-white"
+                    style={{
+                      backgroundColor: hpPct > 65 ? '#D97706' : hpPct > 30 ? '#9333EA' : '#DC2626',
+                    }}
+                  >
+                    {hpPct > 65
+                      ? 'GĐ 1 · Thái Cổ Uy Áp'
+                      : hpPct > 30
+                        ? 'GĐ 2 · Hỗn Độn Long Lân'
+                        : 'GĐ 3 · Diệt Thế Cuồng Nộ'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-black/40 border border-white/15 text-[#FCA5A5] font-mono">
+                    Miễn Thương {hpPct > 65 ? '45%' : hpPct > 30 ? '58%' : '65%'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-black/40 border border-white/15 text-[#DDD6FE] font-mono">
+                    Kháng Bạo {hpPct > 65 ? '25%' : hpPct > 30 ? '30%' : '35%'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-black/40 border border-white/15 text-[#FDE68A] font-mono">
+                    Trần ST: 4M/đòn · 30M/đợt
+                  </span>
                 </div>
               </div>
 

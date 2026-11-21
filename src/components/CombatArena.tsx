@@ -23,6 +23,12 @@ import {
   getElementRelation,
   rollRarity,
 } from '../utils/gameLogic';
+import {
+  CombatArchetype,
+  calculateCombatDamage,
+  getBossPhaseInfo,
+} from '../utils/combatEngine';
+import { WORLD_BOSS_WAVE_CAP } from '../data/worldBoss';
 import { sfx } from '../utils/sound';
 import {
   DisciplePortrait,
@@ -219,7 +225,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
   const buildRewards = (): BattleVictoryRewards => {
     const dropBonus = 1 + state.alliance.tech.dropLevel * 0.1;
     if (context.mode === 'world_boss') {
-      const dmg = Math.max(180_000, worldBossDamageRef.current);
+      const dmg = Math.min(WORLD_BOSS_WAVE_CAP, Math.max(50_000, worldBossDamageRef.current));
       return {
         linhThach: Math.round(35000 * dropBonus),
         linhThao: 400,
@@ -444,44 +450,93 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       primaryTargetUnit = targets[0] || null;
       let totalDmgDealt = 0;
 
+      const getUnitArchetype = (u: StageCombatUnit): CombatArchetype => {
+        if (u.isAlly) return 'monster';
+        if (context.mode === 'world_boss' && u.isBoss) return 'world_boss';
+        if (u.isBoss) return 'boss';
+        if (context.mode === 'vein') return 'guardian';
+        return 'monster';
+      };
+
+      const attackerArch = getUnitArchetype(acting);
+      const attackerPhase = !acting.isAlly
+        ? getBossPhaseInfo(acting.hp, acting.maxHp, attackerArch)
+        : null;
+      const effectiveAttackerAtk = Math.round(
+        acting.atk * (1 + (attackerPhase ? attackerPhase.atkBonusPct : 0) / 100),
+      );
+
       const applyHitToTarget = (tgt: StageCombatUnit, dmgScale = 1, extraTag?: string) => {
         if (!hitIds.includes(tgt.id)) hitIds.push(tgt.id);
-        const rel = getElementRelation(skill.element, tgt.element);
-        const elemRelMult = rel === 'counter' ? 1.35 : rel === 'resisted' ? 0.8 : 1.0;
-        const critChance =
-          acting.crit +
-          (rel === 'counter' ? 15 : 0) +
-          (isComboTriggered && skill.element === 'Kim' ? 25 : 0) +
-          (isComboTriggered ? mods?.comboCritBonus || 0 : 0);
-        const isCrit = Math.random() * 100 < critChance;
+        const tgtArch = getUnitArchetype(tgt);
+        const prevPhase = !tgt.isAlly ? getBossPhaseInfo(tgt.hp, tgt.maxHp, tgtArch) : null;
+
+        const dmgRes = calculateCombatDamage({
+          attacker: {
+            atk: effectiveAttackerAtk,
+            crit: acting.crit,
+            critDmg: acting.critDmg,
+            elemBonus: acting.elemBonus,
+            isAlly: acting.isAlly,
+            isBoss: acting.isBoss,
+            combatMods: mods,
+          },
+          defender: {
+            hp: tgt.hp,
+            maxHp: tgt.maxHp,
+            def: tgt.def,
+            element: tgt.element,
+            isBoss: tgt.isBoss,
+            isWorldBoss: tgtArch === 'world_boss',
+            archetype: tgtArch,
+          },
+          skill,
+          isComboTriggered,
+          comboChain: newComboChain,
+          tangKinhLevel: state.buildings.tang_kinh_cac.level,
+          dmgScale,
+        });
+
+        const { finalDmg, isCrit, elementRelation: rel, armorPenPct, wasCapped, drPct } = dmgRes;
         if (isCrit) anyCrit = true;
-        const critMult = isCrit ? acting.critDmg / 100 : 1.0;
 
-        const basePen = isComboTriggered && skill.element === 'Kim' ? 0.72 : 1.0;
-        const totalPenPct = (mods?.armorPenBonus || 0) * (isComboTriggered ? 1.0 : 0.65);
-        const armorPen = Math.max(0.25, basePen - totalPenPct / 100);
-        const bossMult = tgt.isBoss && mods?.bossDmgPct ? 1 + mods.bossDmgPct / 100 : 1;
+        // Enforce World Boss wave cap so 1 raid wave never exceeds 6% HP (30M ST)
+        let appliedDmg = finalDmg;
+        if (tgtArch === 'world_boss' && acting.isAlly) {
+          const remainingWaveBudget = Math.max(0, WORLD_BOSS_WAVE_CAP - worldBossDamageRef.current);
+          appliedDmg = Math.min(finalDmg, remainingWaveBudget);
+        }
 
-        const mitigatedAtk = Math.max(acting.atk * 0.28, acting.atk * skillMult - tgt.def * 0.42 * armorPen);
-        const rawDmg =
-          mitigatedAtk *
-          (1 + acting.elemBonus / 100) *
-          elemRelMult *
-          comboMult *
-          critMult *
-          tangKinhBonus *
-          bossMult *
-          dmgScale;
-        const finalDmg = Math.max(18, Math.round(rawDmg * (0.94 + Math.random() * 0.12)));
-        totalDmgDealt += finalDmg;
+        totalDmgDealt += appliedDmg;
 
-        let remainingDmg = finalDmg;
+        let remainingDmg = appliedDmg;
         if (tgt.shield > 0) {
           const absorbed = Math.min(tgt.shield, remainingDmg);
           tgt.shield -= absorbed;
           remainingDmg -= absorbed;
         }
         tgt.hp = Math.max(0, tgt.hp - remainingDmg);
+
+        // Announce Boss Phase Transition when crossing 65% / 40% / 30% HP thresholds
+        if (!tgt.isAlly && tgt.hp > 0) {
+          const nextPhase = getBossPhaseInfo(tgt.hp, tgt.maxHp, tgtArch);
+          if (prevPhase && nextPhase && nextPhase.phase > prevPhase.phase) {
+            logs.push(
+              `⚡ [${tgt.name}] tiến vào ${nextPhase.name}! (${nextPhase.desc})`,
+            );
+            // Boss gains protective dragon scale shield when entering Phase 2/3
+            if (tgtArch === 'world_boss') {
+              const phaseShield = Math.round(tgt.maxHp * 0.006);
+              tgt.shield += phaseShield;
+              pendingFloats.push({
+                unitId: tgt.id,
+                text: `${nextPhase.name}!`,
+                color: nextPhase.badgeColor,
+                subText: `+${formatNum(phaseShield)} Long Lân Giáp`,
+              });
+            }
+          }
+        }
 
         // Tiên Phẩm Thiên Phú: Bất Hoại Kim Thân (miễn tử 1 lần khi tụt về 1 HP)
         let triggeredImmortal = false;
@@ -498,12 +553,14 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         if (isComboTriggered) tags.push(`LIÊN HOÀN x${newComboChain}`);
         if (rel === 'counter') tags.push('KHẮC CHẾ!');
         if (isCrit) tags.push('BẠO KÍCH!');
-        if (armorPen < 0.92) tags.push('XUYÊN GIÁP');
+        if (armorPenPct >= 15) tags.push(`XUYÊN GIÁP ${armorPenPct}%`);
+        if (drPct >= 30) tags.push(`MIỄN THƯƠNG ${drPct}%`);
+        if (wasCapped) tags.push('GIỚI HẠN ST');
         if (triggeredImmortal) tags.push('BẤT HOẠI MIỄN TỬ!');
 
         pendingFloats.push({
           unitId: tgt.id,
-          text: `-${formatNum(finalDmg)}`,
+          text: `-${formatNum(appliedDmg)}`,
           color: isCrit ? '#FB7185' : rel === 'counter' ? '#FBBF24' : '#F8FAFC',
           subText: tags.join(' · ') || undefined,
           isCrit,
@@ -540,15 +597,12 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         }
       }
 
-      // Boss Thế Giới Toàn Server: ghi nhận sát thương tổng đóng góp vào BXH toàn server
+      // Boss Thế Giới Toàn Server: ghi nhận sát thương THỰC TẾ (không nhân ảo, có trần 6% HP/đợt)
       if (context.mode === 'world_boss' && acting.isAlly && totalDmgDealt > 0) {
-        const scaledRaidDmg = Math.max(45_000, Math.round(totalDmgDealt * 28));
-        worldBossDamageRef.current += scaledRaidDmg;
-        // Also reflect scaled raid impact on the World Boss's massive 50M HP bar
-        const wb = nextUnits.find((u) => !u.isAlly && u.hp > 0);
-        if (wb) {
-          wb.hp = Math.max(0, wb.hp - Math.max(0, scaledRaidDmg - totalDmgDealt));
-        }
+        worldBossDamageRef.current = Math.min(
+          WORLD_BOSS_WAVE_CAP,
+          worldBossDamageRef.current + totalDmgDealt,
+        );
       }
 
       // Pháp Bảo Tế Luyện (Luyện Đan Đỉnh): Hút Máu theo tổng sát thương gây ra
@@ -917,6 +971,48 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
           </button>
         </div>
       </header>
+
+      {/* BOSS PHASE & COMBAT MECHANICS HUD STRIP */}
+      {singleBoss && (() => {
+        const arch: CombatArchetype = context.mode === 'world_boss' ? 'world_boss' : 'boss';
+        const phase = getBossPhaseInfo(singleBoss.hp, singleBoss.maxHp, arch);
+        if (!phase) return null;
+        return (
+          <div className="px-3 py-1 bg-[#140B1F]/95 border-b border-[#C9A45C]/45 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#F4E7C8]">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className="px-2 py-0.5 rounded-full font-black text-[10px] text-white shadow"
+                style={{ backgroundColor: phase.badgeColor }}
+              >
+                {phase.name}
+              </span>
+              <span className="font-mono text-[#FCA5A5]">
+                Miễn Thương: <strong>{phase.damageReductionPct}%</strong>
+              </span>
+              <span className="font-mono text-[#C4B5FD]">
+                Kháng Bạo: <strong>{phase.critResistPct}%</strong>
+              </span>
+              <span className="font-mono text-[#FDE68A]">
+                Giáp: <strong>{formatNum(Math.round(singleBoss.def * (1 + phase.defBonusPct / 100)))}</strong>
+              </span>
+              {phase.atkBonusPct > 0 && (
+                <span className="font-mono text-[#FB7185] font-bold">
+                  Cuồng Nộ: +{phase.atkBonusPct}% Công
+                </span>
+              )}
+            </div>
+            {context.mode === 'world_boss' && (
+              <div className="font-mono font-bold text-[#FDE047] flex items-center gap-2">
+                <span>
+                  ST Đợt Này: {worldBossDamageRef.current.toLocaleString('vi-VN')} / {formatNum(WORLD_BOSS_WAVE_CAP)}
+                </span>
+                <span className="text-[#94A3B8]">·</span>
+                <span>Hiệp {round}/{context.worldBossMeta?.maxRounds ?? 5}</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 2. CENTER 2.5D LIVE BATTLE STAGE (~70% screen) */}
       <BattleStage

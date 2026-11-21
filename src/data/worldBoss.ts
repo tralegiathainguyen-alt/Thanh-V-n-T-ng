@@ -18,34 +18,35 @@ export const WORLD_BOSS_SCHEDULES: WorldBossScheduleSlot[] = [
   { index: 3, label: 'Đợt 4 · Hợi Thì', hour: 21, minute: 30, durationMinutes: 30, timeText: '21:30 – 22:00' },
 ];
 
-export const WORLD_BOSS_MAX_HP = 50_000_000;
+export const WORLD_BOSS_MAX_HP = 500_000_000; // 500 Triệu HP toàn server
+export const WORLD_BOSS_WAVE_CAP = 30_000_000; // Tối đa 6% HP Boss mỗi đợt xuất trận (chống 1-hit kill)
 export const WORLD_BOSS_ATTACK_COOLDOWN_MS = 10_000;
 
 export const WORLD_BOSS_DEF: BossDef = {
   id: 'boss_world_hon_don',
   name: 'Hỗn Độn Thiên Ma Long',
-  title: 'Boss Thế Giới Toàn Server · Thái Cổ Diệt Thế Long Tôn',
+  title: 'Boss Thế Giới Toàn Server · Thái Cổ Diệt Thế Long Tôn (500 Triệu HP)',
   realmTier: 8,
   stageLabel: 'Toàn Server',
   arenaKey: 'boss_ma_long',
   element: 'Hoa',
-  recommendedPower: 250000,
+  recommendedPower: 1_200_000,
   staminaCost: 0,
   hp: WORLD_BOSS_MAX_HP,
-  atk: 1400,
-  def: 420,
-  spd: 145,
+  atk: 12_500,
+  def: 28_000,
+  spd: 165,
   setId: 'thai_co_long_hoang',
   guaranteedMinRarity: 'truyen_thuyet',
   description:
-    'Thái Cổ Ma Long giáng lâm 4 lần mỗi ngày (30 phút/đợt). Toàn server hợp lực tiêu diệt để nhận Xếp Hạng Sát Thương, Thời Trang VIP Độc Quyền và Đồ VIP Thần Khí!',
+    'Thái Cổ Ma Long 500 Triệu HP với 3 Giai Đoạn (Miễn Thương 45%→65%, Kháng Bạo 25%→35%, Giới Hạn ST 0.8% HP/đòn). Xuất hiện 4 lần/ngày (30 phút/đợt) để toàn server hợp lực tiêu diệt!',
   skills: [
     {
       id: 'wb_skill_1',
       name: 'Hỗn Độn Diệt Thế Lôi',
       element: 'Hoa',
       mpCost: 0,
-      multiplier: 1.55,
+      multiplier: 1.65,
       target: 'all',
       description: 'Giáng thiên lôi hỗn độn lên toàn bộ đội hình tiên môn.',
       comboBonusDesc: 'Gây sát thương diện rộng toàn đội.',
@@ -56,7 +57,7 @@ export const WORLD_BOSS_DEF: BossDef = {
       name: 'Thái Cổ Long Tức',
       element: 'Kim',
       mpCost: 0,
-      multiplier: 2.05,
+      multiplier: 2.25,
       target: 'single',
       description: 'Phun chân hỏa long tức xuyên phá hộ thuẫn mục tiêu.',
       comboBonusDesc: 'Sát thương đơn mục tiêu cực mạnh.',
@@ -196,8 +197,8 @@ const SERVER_RAIDER_TEMPLATES: Omit<WorldBossRaider, 'damage' | 'attacks'>[] = [
   { id: 'srv_14', name: 'Tụ Bảo Thương Minh', realmLabel: 'Kim Đan Viên Mãn', power: 120_000 },
 ];
 
-const WB_STORAGE_KEY = 'tvtt_world_boss_session_v1';
-const WB_CUSTOM_END_KEY = 'tvtt_world_boss_custom_end_v1';
+const WB_STORAGE_KEY = 'tvtt_world_boss_session_v2';
+const WB_CUSTOM_END_KEY = 'tvtt_world_boss_custom_end_v2';
 
 export interface WorldBossWindowStatus {
   isActive: boolean;
@@ -351,14 +352,14 @@ export function createFreshWorldBossSession(
   playerSectName: string,
   playerPower: number,
 ): WorldBossSessionState {
-  // Seed modest opening damage for server raiders based on elapsed time in the 30-min window
+  // Seed realistic opening damage for 14 server sects scaled to 500M HP
   const elapsedSec = Math.max(0, Math.min(1800, Math.floor((Date.now() - win.startedAt) / 1000)));
-  const elapsedFactor = Math.min(0.45, elapsedSec / 2600);
+  const elapsedFactor = Math.min(0.45, elapsedSec / 2200);
 
   let totalServerDmg = 0;
   const raiders: WorldBossRaider[] = SERVER_RAIDER_TEMPLATES.map((tpl, idx) => {
-    const baseDmg = Math.round((1_200_000 - idx * 72_000) * (0.22 + elapsedFactor) * (0.85 + Math.random() * 0.3));
-    const dmg = Math.max(35_000, baseDmg);
+    const baseDmg = Math.round((8_500_000 - idx * 520_000) * (0.18 + elapsedFactor) * (0.85 + Math.random() * 0.3));
+    const dmg = Math.max(250_000, baseDmg);
     totalServerDmg += dmg;
     return {
       ...tpl,
@@ -377,7 +378,7 @@ export function createFreshWorldBossSession(
     isPlayer: true,
   });
 
-  const currentHp = Math.max(Math.round(WORLD_BOSS_MAX_HP * 0.28), WORLD_BOSS_MAX_HP - totalServerDmg);
+  const currentHp = Math.max(Math.round(WORLD_BOSS_MAX_HP * 0.35), WORLD_BOSS_MAX_HP - totalServerDmg);
   const session: WorldBossSessionState = {
     sessionKey: win.sessionKey,
     slotLabel: win.slotLabel,
@@ -396,7 +397,7 @@ export function createFreshWorldBossSession(
     battleFeed: [
       {
         id: `feed_open_${Date.now()}`,
-        text: `Hỗn Độn Thiên Ma Long đã giáng lâm (${win.slotLabel})! Toàn server đang tập kết tiêu diệt!`,
+        text: `Hỗn Độn Thiên Ma Long (500 Triệu HP · 3 Giai Đoạn) đã giáng lâm (${win.slotLabel})! Toàn server đang tập kết tiêu diệt!`,
         timeText: nowTimeStr(),
         highlight: true,
       },
@@ -412,7 +413,7 @@ export function tickServerRaiders(session: WorldBossSessionState): WorldBossSess
   const npcRaiders = session.raiders.filter((r) => !r.isPlayer);
   if (npcRaiders.length === 0) return session;
 
-  // Pick 2 random server sects to strike this tick
+  // Pick 2 random server sects to strike this tick (calibrated for 500M HP pool)
   const strikers = [
     npcRaiders[Math.floor(Math.random() * npcRaiders.length)],
     npcRaiders[Math.floor(Math.random() * npcRaiders.length)],
@@ -420,13 +421,17 @@ export function tickServerRaiders(session: WorldBossSessionState): WorldBossSess
   let totalTickDmg = 0;
   const dmgMap = new Map<string, number>();
 
+  // Boss Phase DR slows server DPS in Phase 2 & 3 just like player DPS!
+  const hpPct = (session.currentHp / session.maxHp) * 100;
+  const phaseScale = hpPct > 65 ? 1.0 : hpPct > 30 ? 0.78 : 0.65;
+
   for (const s of strikers) {
-    const hit = Math.round(Math.max(45_000, s.power * (0.28 + Math.random() * 0.24)));
+    const hit = Math.round(Math.max(220_000, s.power * (0.55 + Math.random() * 0.45) * phaseScale));
     dmgMap.set(s.id, (dmgMap.get(s.id) || 0) + hit);
     totalTickDmg += hit;
   }
 
-  // Keep boss at least at 2% HP if player hasn't attacked yet, or allow full kill once player participates!
+  // Keep boss at least at 5% HP if player hasn't attacked yet, or allow full kill once player participates!
   const minFloor = session.playerDamage > 0 ? 0 : Math.round(session.maxHp * 0.05);
   const nextHp = Math.max(minFloor, session.currentHp - totalTickDmg);
   const slain = nextHp <= 0;
@@ -476,7 +481,7 @@ export function recordPlayerWorldBossDamage(
   playerPower: number,
   damageDealt: number,
 ): { updated: WorldBossSessionState; dealtFinishingBlow: boolean } {
-  const safeDmg = Math.max(100_000, Math.round(damageDealt));
+  const safeDmg = Math.max(50_000, Math.min(WORLD_BOSS_WAVE_CAP, Math.round(damageDealt)));
   const nextHp = Math.max(0, session.currentHp - safeDmg);
   const dealtFinishingBlow = !session.slain && nextHp <= 0;
   const slain = session.slain || nextHp <= 0;
