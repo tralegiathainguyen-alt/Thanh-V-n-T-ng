@@ -768,7 +768,7 @@ export function VipModal({
             })}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {(Object.keys(VIP_FASHIONS) as VipFashionId[]).map((fId) => {
               const fashion = VIP_FASHIONS[fId];
               const unlocked = state.vip.unlockedFashions.includes(fId);
@@ -819,7 +819,9 @@ export function VipModal({
                       }`}
                     >
                       {!unlocked
-                        ? `Nhận tại Quà Mốc VIP ${fashion.vipReq}`
+                        ? fashion.vipReq === 0
+                          ? 'Rơi từ Boss Thế Giới Toàn Server'
+                          : `Nhận tại Quà Mốc VIP ${fashion.vipReq}`
                         : isWorn
                           ? 'Tháo Thời Trang'
                           : `Mặc cho ${selectedDisciple.name.split(' ').slice(-1)[0]}`}

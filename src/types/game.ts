@@ -126,7 +126,11 @@ export interface Disciple {
   qualityRank?: DiscipleQualityRank;
 }
 
-export type VipFashionId = 'thanh_lien_tien_y' | 'thai_co_long_bao' | 'hong_mong_de_ton';
+export type VipFashionId =
+  | 'thanh_lien_tien_y'
+  | 'thai_co_long_bao'
+  | 'hong_mong_de_ton'
+  | 'hon_don_long_hoang';
 
 export interface VipState {
   points: number;
@@ -297,6 +301,7 @@ export type ActiveModal =
   | 'disciples'
   | 'equipment'
   | 'world'
+  | 'world_boss'
   | 'alliance'
   | 'offline'
   | 'gifts'
@@ -306,7 +311,7 @@ export type ActiveModal =
   | 'asset_studio';
 
 export interface CombatContext {
-  mode: 'realm' | 'boss' | 'vein';
+  mode: 'realm' | 'boss' | 'vein' | 'world_boss';
   title: string;
   subtitle: string;
   targetId: string;
@@ -315,6 +320,12 @@ export interface CombatContext {
   bossDef?: BossDef;
   realmDef?: SecretRealmDef;
   veinDef?: SpiritVein;
+  worldBossMeta?: {
+    sessionKey: string;
+    bossMaxHp: number;
+    bossCurrentHp: number;
+    maxRounds: number;
+  };
 }
 
 export interface GameState {

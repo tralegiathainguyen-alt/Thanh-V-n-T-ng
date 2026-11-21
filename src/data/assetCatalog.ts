@@ -87,6 +87,7 @@ const BOSSES: [string, string][] = [
   ['boss_huyen_vu', 'Thái Cổ Huyền Vũ'],
   ['boss_kiem_ma', 'Vô Cực Kiếm Ma'],
   ['boss_ma_long', 'Hắc Viêm Ma Long'],
+  ['boss_world_hon_don', 'Boss Thế Giới · Hỗn Độn Thiên Ma Long'],
 ];
 
 const EQUIPMENT: [string, string][] = [

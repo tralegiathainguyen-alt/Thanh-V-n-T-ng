@@ -52,6 +52,22 @@ import { CombatArena, BattleVictoryRewards } from './components/CombatArena';
 import { SectBuildingsModal } from './components/SectBuildingsModal';
 import { DisciplesModal } from './components/DisciplesModal';
 import { DiscipleGrowthAction } from './components/DiscipleUpgradePanels';
+import { WorldBossModal } from './components/WorldBossModal';
+import {
+  WORLD_BOSS_DEF,
+  WorldBossRankTier,
+  WorldBossSessionState,
+  WorldBossWindowStatus,
+  createFreshWorldBossSession,
+  generateWorldBossVipGear,
+  getWorldBossWindowStatus,
+  loadStoredWorldBossSession,
+  pickWorldBossVipFashionReward,
+  recordPlayerWorldBossDamage,
+  saveWorldBossSession,
+  startCustomWorldBossWindow,
+  tickServerRaiders,
+} from './data/worldBoss';
 import {
   NATAL_ARTIFACTS,
   QUALITY_RANKS,
@@ -224,9 +240,42 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
   const [showQuestPanel, setShowQuestPanel] = useState(false);
   const [showRightMenu, setShowRightMenu] = useState(false);
 
+  // Server-Wide World Boss state (4x/day, 30 min/window + live server raiders)
+  const [wbWinStatus, setWbWinStatus] = useState<WorldBossWindowStatus>(() =>
+    getWorldBossWindowStatus(Date.now()),
+  );
+  const [wbSession, setWbSession] = useState<WorldBossSessionState>(() => {
+    const win = getWorldBossWindowStatus(Date.now());
+    const stored = loadStoredWorldBossSession();
+    if (stored && stored.sessionKey === win.sessionKey) return stored;
+    if (!win.isActive && stored) return stored;
+    return createFreshWorldBossSession(win, initialState.sectName, computeTotalSectPower(initialState));
+  });
+
   const toastTimer = useRef<number | null>(null);
   const latestStateRef = useRef<GameState>(state);
   latestStateRef.current = state;
+
+  // Tick World Boss countdown (1s) and live server raiders (every 2s while active)
+  useEffect(() => {
+    let tickCount = 0;
+    const id = window.setInterval(() => {
+      tickCount += 1;
+      const win = getWorldBossWindowStatus(Date.now());
+      setWbWinStatus(win);
+      setWbSession((prev) => {
+        if (win.isActive && prev.sessionKey !== win.sessionKey) {
+          const cur = latestStateRef.current;
+          return createFreshWorldBossSession(win, cur.sectName, computeTotalSectPower(cur));
+        }
+        if (win.isActive && !prev.slain && tickCount % 2 === 0) {
+          return tickServerRaiders(prev);
+        }
+        return prev;
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -1874,7 +1923,21 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
   };
 
   const handleCombatFinish = (victory: boolean, rewards?: BattleVictoryRewards) => {
+    const wasWorldBoss = activeCombat?.mode === 'world_boss';
     if (victory && rewards && activeCombat) {
+      let wbFinishingBlow = false;
+      if (wasWorldBoss && rewards.worldBossDamage && rewards.worldBossDamage > 0) {
+        const curPower = computeTotalSectPower(state);
+        const res = recordPlayerWorldBossDamage(
+          wbSession,
+          state.sectName,
+          curPower,
+          rewards.worldBossDamage,
+        );
+        wbFinishingBlow = res.dealtFinishingBlow;
+        setWbSession(res.updated);
+      }
+
       setState((prev) => {
         const nextCleared =
           activeCombat.mode === 'realm' && !prev.clearedRealms.includes(activeCombat.targetId)
@@ -1909,20 +1972,21 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
             dotPhaDan: prev.resources.dotPhaDan + rewards.dotPhaDan,
             linhKhi: prev.resources.linhKhi + rewards.linhKhi,
             tinhHoaBoss: prev.resources.tinhHoaBoss + rewards.tinhHoaBoss,
-            tienNgoc: prev.resources.tienNgoc + rewards.tienNgoc,
+            tienNgoc: prev.resources.tienNgoc + rewards.tienNgoc + (wbFinishingBlow ? 1000 : 0),
           },
           inventory: [...rewards.droppedEquipment, ...prev.inventory],
           gems: [...rewards.droppedGems, ...prev.gems],
           quests: updateQuestProgress(prev.quests, 'q_daily_1', 1),
           chatMessages:
-            activeCombat.mode === 'boss' || activeCombat.mode === 'vein'
+            activeCombat.mode === 'boss' || activeCombat.mode === 'vein' || wbFinishingBlow
               ? [
                   {
                     id: genId('chat'),
                     channel: 'the_gioi' as const,
                     sender: 'Hệ Thống',
-                    text:
-                      activeCombat.mode === 'vein'
+                    text: wbFinishingBlow
+                      ? `[Boss Thế Giới] 🏆 ${prev.sectName} đã tung ĐÒN KẾT LIỄU hạ gục Hỗn Độn Thiên Ma Long (+1.000 Tiên Ngọc)! Toàn server mau nhận Thời Trang VIP & Đồ VIP!`
+                      : activeCombat.mode === 'vein'
                         ? `[Linh Mạch] ${prev.alliance.name} đã đánh chiếm thành công ${activeCombat.veinDef?.name}!`
                         : `[Săn Boss] ${prev.sectName} đã hạ gục ${activeCombat.bossDef?.name}, đoạt bộ trang bị Huyền Thoại!`,
                     timestamp: Date.now(),
@@ -1934,6 +1998,128 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
       });
     }
     setActiveCombat(null);
+    if (wasWorldBoss) {
+      setActiveModal('world_boss');
+    }
+  };
+
+  const handleSummonWorldBossNow = () => {
+    sfx.click();
+    startCustomWorldBossWindow(Date.now());
+    const win = getWorldBossWindowStatus(Date.now());
+    setWbWinStatus(win);
+    const fresh = createFreshWorldBossSession(win, state.sectName, computeTotalSectPower(state));
+    setWbSession(fresh);
+    showToast('Đã triệu hồi Boss Thế Giới Hỗn Độn Thiên Ma Long (30 phút)! Toàn server đang tập kết!');
+  };
+
+  const handleAttackWorldBoss = () => {
+    if (!wbWinStatus.isActive || wbSession.slain) return;
+    handleStartCombat({
+      mode: 'world_boss',
+      title: `Boss Thế Giới: ${WORLD_BOSS_DEF.name}`,
+      subtitle: `${wbWinStatus.slotLabel} · Xuất Trận 4 Hiệp Gây Sát Thương Tối Đa`,
+      targetId: WORLD_BOSS_DEF.id,
+      staminaCost: 0,
+      bossDef: WORLD_BOSS_DEF,
+      worldBossMeta: {
+        sessionKey: wbSession.sessionKey,
+        bossMaxHp: wbSession.maxHp,
+        bossCurrentHp: Math.max(1, wbSession.currentHp),
+        maxRounds: 4,
+      },
+      enemies: [
+        {
+          id: WORLD_BOSS_DEF.id,
+          name: WORLD_BOSS_DEF.name,
+          element: WORLD_BOSS_DEF.element,
+          hp: Math.max(1, wbSession.currentHp),
+          atk: WORLD_BOSS_DEF.atk,
+          def: WORLD_BOSS_DEF.def,
+          spd: WORLD_BOSS_DEF.spd,
+          isBoss: true,
+          glyph: ELEMENT_META[WORLD_BOSS_DEF.element].hanzi,
+        },
+      ],
+    });
+  };
+
+  const handleClaimWorldBossRankReward = (rank: number, tier: WorldBossRankTier) => {
+    if (wbSession.rankRewardClaimed || wbSession.playerDamage <= 0) return;
+    sfx.victory();
+    const vipGear = generateWorldBossVipGear(
+      tier.vipGearCount,
+      tier.vipGearRarity,
+      tier.vipGearEnhance,
+      rank <= 3 ? 5 : 4,
+    );
+    const nextSession: WorldBossSessionState = { ...wbSession, rankRewardClaimed: true };
+    saveWorldBossSession(nextSession);
+    setWbSession(nextSession);
+
+    setState((prev) => ({
+      ...prev,
+      resources: {
+        ...prev.resources,
+        tienNgoc: prev.resources.tienNgoc + tier.tienNgoc,
+        linhThach: prev.resources.linhThach + tier.linhThach,
+        cuongHoaThach: prev.resources.cuongHoaThach + tier.cuongHoaThach,
+        tinhHoaBoss: prev.resources.tinhHoaBoss + tier.tinhHoaBoss,
+      },
+      inventory: [...vipGear, ...prev.inventory],
+    }));
+    showToast(`Đã nhận Thưởng Hạng #${rank}: +${formatNum(tier.tienNgoc)} Tiên Ngọc & ${tier.vipGearLabel}!`);
+  };
+
+  const handleClaimWorldBossKillReward = () => {
+    if (!wbSession.slain || wbSession.killRewardClaimed || wbSession.playerDamage <= 0) return;
+    sfx.victory();
+    const vipGear = generateWorldBossVipGear(2, 'truyen_thuyet', 12, 5);
+    const nextFashion = pickWorldBossVipFashionReward(state.vip.unlockedFashions);
+    const bonusJade = nextFashion ? 2000 : 3500;
+
+    const nextSession: WorldBossSessionState = { ...wbSession, killRewardClaimed: true };
+    saveWorldBossSession(nextSession);
+    setWbSession(nextSession);
+
+    setState((prev) => ({
+      ...prev,
+      resources: {
+        ...prev.resources,
+        tienNgoc: prev.resources.tienNgoc + bonusJade,
+        tinhHoaBoss: prev.resources.tinhHoaBoss + 50,
+      },
+      inventory: [...vipGear, ...prev.inventory],
+      vip: {
+        ...prev.vip,
+        unlockedFashions:
+          nextFashion && !prev.vip.unlockedFashions.includes(nextFashion)
+            ? [...prev.vip.unlockedFashions, nextFashion]
+            : prev.vip.unlockedFashions,
+      },
+      // Auto-equip the exclusive World Boss VIP fashion on Sect Master if not wearing one!
+      disciples: prev.disciples.map((d) =>
+        d.isSectMaster && nextFashion && !d.fashionId ? { ...d, fashionId: nextFashion } : d,
+      ),
+      chatMessages: [
+        {
+          id: genId('chat'),
+          channel: 'the_gioi' as const,
+          sender: 'Hệ Thống',
+          text: `[Boss Thế Giới] ${prev.sectName} đã mở Rương Tiêu Diệt Boss: nhận ${
+            nextFashion ? `Thời Trang VIP [${VIP_FASHIONS[nextFashion].name}]` : '+1.500 Tiên Ngọc'
+          } & 2 Món Đồ VIP Truyền Thuyết (+12)!`,
+          timestamp: Date.now(),
+        },
+        ...prev.chatMessages,
+      ].slice(0, 30),
+    }));
+
+    showToast(
+      nextFashion
+        ? `Nhận Thời Trang VIP [${VIP_FASHIONS[nextFashion].name}] + 2 Đồ VIP Thần Khí (+12)!`
+        : 'Nhận 2 Đồ VIP Thần Khí (+12) + 3.500 Tiên Ngọc (đã sở hữu đủ Thời Trang VIP)!',
+    );
   };
 
   const handleSweepRealm = (realm: SecretRealmDef) => {
@@ -3070,9 +3256,54 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
           );
         })()}
 
+        {/* Always-visible Boss Thế Giới Toàn Server Live Pill */}
+        <button
+          type="button"
+          onClick={() => {
+            sfx.click();
+            setShowRightMenu(false);
+            setActiveModal('world_boss');
+          }}
+          className={`mt-1 flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-lg cursor-pointer transition-transform hover:scale-105 ${
+            wbWinStatus.isActive && !wbSession.slain
+              ? 'bg-gradient-to-r from-[#7F1D1D] via-[#B45309] to-[#7F1D1D] border-[#FDE047] text-[#FEF3C7] animate-pulse'
+              : 'bg-[#171226]/90 border-[#C084FC]/75 text-[#F3E8FF] hover:border-[#FDE047]'
+          }`}
+          title="Boss Thế Giới Toàn Server (4 lần/ngày · 30 phút/đợt)"
+        >
+          <img
+            src="./assets/sprites/bosses/boss_world_hon_don.png"
+            alt="Boss Thế Giới"
+            className="w-6 h-6 rounded-full object-contain bg-black/40 border border-[#FDE047]/70"
+          />
+          <div className="text-left leading-tight pr-0.5">
+            <div className="text-[10px] font-black text-[#FDE047] whitespace-nowrap">
+              Boss Thế Giới
+            </div>
+            <div className="text-[9px] font-mono font-bold text-white/95 whitespace-nowrap">
+              {wbWinStatus.isActive && !wbSession.slain
+                ? `🔥 ĐANG MỞ`
+                : wbSession.slain && !wbSession.killRewardClaimed && wbSession.playerDamage > 0
+                  ? '🎁 NHẬN VIP'
+                  : '4 đợt/ngày'}
+            </div>
+          </div>
+        </button>
+
         {showRightMenu && (
           <div className="flex flex-col items-center gap-1.5 pt-1 pr-1">
             {[
+              {
+                id: 'world_boss',
+                label: wbWinStatus.isActive && !wbSession.slain ? 'Boss TG 🔥' : 'Boss Thế Giới',
+                sprite: './assets/sprites/bosses/boss_world_hon_don.png',
+                highlight: wbWinStatus.isActive && !wbSession.slain,
+                onClick: () => {
+                  sfx.click();
+                  setShowRightMenu(false);
+                  setActiveModal('world_boss');
+                },
+              },
               {
                 id: 'vip',
                 label: unclaimedVipCount > 0 ? `VIP ${vipLevel} (${unclaimedVipCount})` : `Nạp · VIP`,
@@ -3379,6 +3610,19 @@ function GameSession({ account, initialState, onLogout }: GameSessionProps) {
 
       {activeModal === 'asset_studio' && (
         <AssetStudioModal onClose={() => setActiveModal(null)} />
+      )}
+
+      {activeModal === 'world_boss' && (
+        <WorldBossModal
+          state={state}
+          winStatus={wbWinStatus}
+          session={wbSession}
+          onClose={() => setActiveModal(null)}
+          onAttackBoss={handleAttackWorldBoss}
+          onSummonNow={handleSummonWorldBossNow}
+          onClaimRankReward={handleClaimWorldBossRankReward}
+          onClaimKillReward={handleClaimWorldBossKillReward}
+        />
       )}
 
       {/* TURN-BASED COMBAT OVERLAY */}

@@ -68,6 +68,7 @@ export interface BattleVictoryRewards {
   tienNgoc: number;
   droppedEquipment: EquipmentItem[];
   droppedGems: GemItem[];
+  worldBossDamage?: number;
 }
 
 interface CombatArenaProps {
@@ -124,9 +125,14 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       isAlly: false,
       element: e.element,
       glyph: e.glyph,
-      realmLabel: e.isBoss ? 'BOSS HUYỀN THOẠI' : 'Yêu Linh',
-      maxHp: e.hp,
-      hp: e.hp,
+      realmLabel:
+        context.mode === 'world_boss'
+          ? 'BOSS THẾ GIỚI TOÀN SERVER'
+          : e.isBoss
+            ? 'BOSS HUYỀN THOẠI'
+            : 'Yêu Linh',
+      maxHp: context.mode === 'world_boss' && context.worldBossMeta ? context.worldBossMeta.bossMaxHp : e.hp,
+      hp: context.mode === 'world_boss' && context.worldBossMeta ? context.worldBossMeta.bossCurrentHp : e.hp,
       shield: 0,
       mp: 30,
       maxMp: 100,
@@ -178,6 +184,7 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
   const fastModeRef = useRef(fastMode);
   fastModeRef.current = fastMode;
   const mountedRef = useRef(true);
+  const worldBossDamageRef = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -211,6 +218,22 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
 
   const buildRewards = (): BattleVictoryRewards => {
     const dropBonus = 1 + state.alliance.tech.dropLevel * 0.1;
+    if (context.mode === 'world_boss') {
+      const dmg = Math.max(180_000, worldBossDamageRef.current);
+      return {
+        linhThach: Math.round(35000 * dropBonus),
+        linhThao: 400,
+        huyenThiet: 350,
+        cuongHoaThach: 25,
+        dotPhaDan: 3,
+        linhKhi: 18000,
+        tinhHoaBoss: 5,
+        tienNgoc: 120,
+        droppedEquipment: [],
+        droppedGems: [createGem('Hoa', 3)],
+        worldBossDamage: dmg,
+      };
+    }
     if (context.mode === 'boss' && context.bossDef) {
       const b = context.bossDef;
       const piece1 = generateEquipment({
@@ -280,7 +303,13 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
       return;
     }
     if (aliveA.length === 0) {
-      setBattleOutcome({ victory: false });
+      if (context.mode === 'world_boss') {
+        sfx.victory();
+        const rewards = buildRewards();
+        setBattleOutcome({ victory: true, rewards });
+      } else {
+        setBattleOutcome({ victory: false });
+      }
       setIsAnimating(false);
       return;
     }
@@ -300,6 +329,13 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
     let found = findAlive(nextQueue, nextIdx);
     if (found === -1) {
       nextRound += 1;
+      if (context.mode === 'world_boss' && nextRound > (context.worldBossMeta?.maxRounds ?? 4)) {
+        sfx.victory();
+        const rewards = buildRewards();
+        setBattleOutcome({ victory: true, rewards });
+        setIsAnimating(false);
+        return;
+      }
       nextQueue = [...nextUnits]
         .filter((u) => u.hp > 0)
         .sort((a, b) => b.spd - a.spd)
@@ -501,6 +537,17 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
         const splashTarget = oppPool.find((u) => u.hp > 0 && u.id !== primaryTargetUnit?.id);
         if (splashTarget) {
           applyHitToTarget(splashTarget, mods.splashTargetPct / 100, 'ĐÁNH LAN');
+        }
+      }
+
+      // Boss Thế Giới Toàn Server: ghi nhận sát thương tổng đóng góp vào BXH toàn server
+      if (context.mode === 'world_boss' && acting.isAlly && totalDmgDealt > 0) {
+        const scaledRaidDmg = Math.max(45_000, Math.round(totalDmgDealt * 28));
+        worldBossDamageRef.current += scaledRaidDmg;
+        // Also reflect scaled raid impact on the World Boss's massive 50M HP bar
+        const wb = nextUnits.find((u) => !u.isAlly && u.hp > 0);
+        if (wb) {
+          wb.hp = Math.max(0, wb.hp - Math.max(0, scaledRaidDmg - totalDmgDealt));
         }
       }
 
@@ -1036,6 +1083,21 @@ export function CombatArena({ state, context, onFinish, onClose }: CombatArenaPr
 
             {battleOutcome.victory && battleOutcome.rewards && (
               <div className="space-y-3">
+                {battleOutcome.rewards.worldBossDamage && battleOutcome.rewards.worldBossDamage > 0 && (
+                  <div className="p-3 rounded-xl bg-gradient-to-r from-[#3B0764] via-[#7F1D1D] to-[#9A3412] border border-[#FACC15] text-[#FEF3C7] flex items-center justify-between gap-2 shadow-lg">
+                    <div>
+                      <div className="text-[11px] uppercase tracking-wider text-[#FDE047] font-bold">
+                        Sát Thương Đóng Góp · Boss Thế Giới Toàn Server
+                      </div>
+                      <div className="text-xl font-black font-mono text-white">
+                        {battleOutcome.rewards.worldBossDamage.toLocaleString('vi-VN')} ST
+                      </div>
+                    </div>
+                    <span className="text-[11px] px-2.5 py-1 rounded-full bg-black/35 border border-[#FDE047]/60 text-[#FDE047] font-bold">
+                      Đã ghi nhận vào BXH!
+                    </span>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono tabular-nums">
                   <div className="p-2 rounded bg-[#ECE3CE] border border-[#D4C39F] flex items-center gap-1.5">
                     <ResourceIcon resource="linhThach" size="xs" />

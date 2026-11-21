@@ -909,7 +909,7 @@ export function SpiritVeinSprite({
 }
 
 export function getEnemyUnitSpriteUrl(id: string): string | null {
-  const bossMatch = id.match(/^(boss_(?:cuu_vi|huyen_vu|ma_long|kiem_ma))/);
+  const bossMatch = id.match(/^(boss_(?:cuu_vi|huyen_vu|ma_long|kiem_ma|world_hon_don))/);
   if (bossMatch) return `./assets/sprites/bosses/${bossMatch[1]}.png`;
   if (/^boss_/.test(id)) return `./assets/sprites/bosses/boss_cuu_vi.png`;
   const monMatch = id.match(/^(e(?:1[0-5]|[1-9]))(?:\b|_)/);

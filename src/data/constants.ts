@@ -1580,7 +1580,7 @@ export const VIP_SHOP_ITEMS: VipShopItemDef[] = [
 
 export interface VipFashionDef {
   id: VipFashionId;
-  vipReq: 18 | 19 | 20;
+  vipReq: 0 | 18 | 19 | 20;
   name: string;
   titleBadge: string;
   description: string;
@@ -1629,6 +1629,17 @@ export const VIP_FASHIONS: Record<VipFashionId, VipFashionDef> = {
     glowColor: 'rgba(253, 224, 71, 0.82)',
     bgGradient: 'linear-gradient(135deg, #4C1D95 0%, #B45309 50%, #FDE047 100%)',
     bonuses: { atkPct: 38, hpPct: 38, defPct: 30, spd: 32, crit: 18 },
+  },
+  hon_don_long_hoang: {
+    id: 'hon_don_long_hoang',
+    vipReq: 0,
+    name: 'Hỗn Độn Long Hoàng Bào (Boss Thế Giới VIP)',
+    titleBadge: 'Diệt Thế Long Hoàng',
+    description: 'Thời trang VIP tuyệt thế rơi từ Boss Thế Giới Hỗn Độn Thiên Ma Long, uy áp vạn giới.',
+    ringColor: '#C084FC',
+    glowColor: 'rgba(192, 132, 252, 0.85)',
+    bgGradient: 'linear-gradient(135deg, #3B0764 0%, #991B1B 48%, #FACC15 100%)',
+    bonuses: { atkPct: 42, hpPct: 42, defPct: 32, spd: 35, crit: 20 },
   },
 };
 

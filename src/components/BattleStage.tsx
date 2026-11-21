@@ -122,13 +122,16 @@ const ARENA_SPECS: Record<string, ArenaSpec> = {
 };
 
 export function resolveArenaSpec(
-  mode: 'realm' | 'boss' | 'vein',
+  mode: 'realm' | 'boss' | 'vein' | 'world_boss',
   targetId?: string,
   bossId?: string,
   arenaKey?: string,
 ): ArenaSpec {
   if (arenaKey && ARENA_SPECS[arenaKey]) {
     return ARENA_SPECS[arenaKey];
+  }
+  if (mode === 'world_boss') {
+    return ARENA_SPECS.boss_ma_long;
   }
   if (mode === 'boss' && bossId) {
     if (ARENA_SPECS[bossId]) return ARENA_SPECS[bossId];
@@ -242,7 +245,7 @@ const ELEMENT_RING_ID: Record<ElementType, number> = {
 };
 
 interface BattleStageProps {
-  mode: 'realm' | 'boss' | 'vein';
+  mode: 'realm' | 'boss' | 'vein' | 'world_boss';
   targetId?: string;
   bossId?: string;
   arenaKey?: string;
